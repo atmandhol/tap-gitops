@@ -4,11 +4,11 @@ kind: PackageInstall
 metadata:
 name: petc
 spec:
-serviceAccountName: default-ns-sa
-packageRef:
-  refName: petc.test.tap
-  versionSelection:
-    constraints: ">=0.0.0"
-values:
-- secretRef:
-    name: petc-values
+  serviceAccountName: default
+  packageRef:
+    refName: petc.test.tap
+    versionSelection:
+      constraints: ">=0.0.0"
+  values:
+  - secretRef:
+      name: petc-values
