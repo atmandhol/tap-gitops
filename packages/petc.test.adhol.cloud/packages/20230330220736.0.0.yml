@@ -1,0 +1,25 @@
+apiVersion: data.packaging.carvel.dev/v1alpha1
+kind: Package
+metadata:
+  name: petc.test.tap.20230330220736.0.0
+spec:
+  refName: petc.test.tap
+  version: 20230330220736.0.0
+  releaseNotes: |
+    Release v20230330220736.0.0 of package petc.test.tap
+  template:
+    spec:
+      fetch:
+      - imgpkgBundle:
+          image: gcr.io/adhol-playground/tbs/petc-test-bundle@sha256:3771d26e657e4af4e8ead8a3903f3268fe078b6cea608b1e4f4e27ac39e139b0
+      template:
+      - ytt:
+          paths:
+          - .
+      - kbld:
+          paths:
+          - .imgpkg/images.yml
+          - '-'
+      deploy:
+      - kapp: {}
+
