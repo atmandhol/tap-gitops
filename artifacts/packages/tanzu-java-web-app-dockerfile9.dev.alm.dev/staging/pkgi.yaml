@@ -1,0 +1,14 @@
+---
+apiVersion: packaging.carvel.dev/v1alpha1
+kind: PackageInstall
+metadata:
+ name: app
+spec:
+ serviceAccountName: default # ServiceAccount on Run cluster with permissions to deploy Package, see "Set up Run Cluster Namespaces"
+ packageRef:
+   refName: tanzu-java-web-app-dockerfile9.dev.alm.dev # name of the Package
+   versionSelection:
+     constraints: ">= 0.0.0-0"
+ values:
+ - secretRef:
+     name: app-values # Secret created in previous step
