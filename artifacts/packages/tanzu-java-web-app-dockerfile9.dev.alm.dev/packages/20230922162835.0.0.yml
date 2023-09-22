@@ -1,0 +1,35 @@
+apiVersion: data.packaging.carvel.dev/v1alpha1
+kind: Package
+metadata:
+  name: tanzu-java-web-app-dockerfile9.dev.alm.dev.20230922162835.0.0+build.1ca82ae
+spec:
+  refName: tanzu-java-web-app-dockerfile9.dev.alm.dev
+  version: 20230922162835.0.0+build.1ca82ae
+  releaseNotes: |
+    Release v20230922162835.0.0+build.1ca82ae of package tanzu-java-web-app-dockerfile9.dev.alm.dev
+  template:
+    spec:
+      fetch:
+      - imgpkgBundle:
+          image: gcr.io/adhol-playground/tbs/tanzu-java-web-app-dockerfile9-dev-bundle@sha256:da78cf0982abf3bfe8573e18107eb2636d185b832bd74e8aff55aa4007d19317
+      template:
+      - ytt:
+          paths:
+          - .
+      - kbld:
+          paths:
+          - .imgpkg/images.yml
+          - '-'
+      deploy:
+      - kapp: {}
+  valuesSchema:
+    openAPIv3:
+      type: object
+      additionalProperties: false
+      properties:
+        replicas:
+          title: Replicas
+          type: integer
+          description: Number of replicas.
+          default: 1
+
