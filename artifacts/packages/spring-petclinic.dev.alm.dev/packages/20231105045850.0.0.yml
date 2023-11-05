@@ -1,0 +1,33 @@
+apiVersion: data.packaging.carvel.dev/v1alpha1
+kind: Package
+metadata:
+  name: spring-petclinic.dev.alm.dev.20231105045850.0.0
+spec:
+  refName: spring-petclinic.dev.alm.dev
+  version: 20231105045850.0.0
+  releaseNotes: |
+    Release v20231105045850.0.0 of package spring-petclinic.dev.alm.dev
+  template:
+    spec:
+      fetch:
+      - imgpkgBundle:
+          image: us-east4-docker.pkg.dev/adhol-playground/ucp-with-syncer/wfd/spring-petclinic-dev-bundle@sha256:2829ad36fb773c683f6114610e25684b93d87fb59e996c72f796667ecca967aa
+      template:
+      - ytt:
+          paths:
+          - .
+      - kbld:
+          paths:
+          - .imgpkg/images.yml
+          - '-'
+      deploy:
+      - kapp: {}
+  valuesSchema:
+    openAPIv3:
+      type: object
+      additionalProperties: false
+      properties:
+        workload_name:
+          type: string
+          default: ""
+
