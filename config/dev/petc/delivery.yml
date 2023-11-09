@@ -1,0 +1,36 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: petc
+  annotations:
+    ootb.apps.tanzu.vmware.com/servicebinding-workload: "true"
+    ootb.apps.tanzu.vmware.com/apidescriptor-ref: "true"
+    kapp.k14s.io/change-rule: upsert after upserting servicebinding.io/ServiceBindings
+  labels:
+    app.kubernetes.io/part-of: spring-petclinic
+    apps.tanzu.vmware.com/has-tests: "true"
+    apps.tanzu.vmware.com/workload-type: web
+    app.kubernetes.io/component: run
+    carto.run/workload-name: petc
+spec:
+  template:
+    metadata:
+      annotations:
+        apps.tanzu.vmware.com/correlationid: gcr.io/adhol-playground/lsp:dev-petc?sub_path=/
+        developer.conventions/target-containers: workload
+        local-source-proxy.apps.tanzu.vmware.com: gcr.io/adhol-playground/lsp:dev-petc@sha256:19cc1fedec56c692b785ad9a82a3b7c0546bed024e331259446828931caa47ac
+      labels:
+        app.kubernetes.io/component: run
+        app.kubernetes.io/part-of: spring-petclinic
+        apps.tanzu.vmware.com/has-tests: "true"
+        apps.tanzu.vmware.com/workload-type: web
+        carto.run/workload-name: petc
+    spec:
+      containers:
+      - image: us-east4-docker.pkg.dev/adhol-playground/ucp-with-syncer/wfd/petc-dev@sha256:2afc09b6c0dd1ce9f691bab9b4b05fbb1d830af121fd482a659363df3beecdac
+        name: workload
+        resources: {}
+        securityContext:
+          runAsUser: 1000
+      serviceAccountName: default
+
