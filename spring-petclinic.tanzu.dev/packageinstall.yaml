@@ -1,0 +1,14 @@
+apiVersion: packaging.carvel.dev/v1alpha1
+kind: PackageInstall
+metadata:
+  name: spring-petclinic.tanzu.dev-pkgi
+spec:
+  packageRef:
+    refName: spring-petclinic.tanzu.dev
+    versionSelection:
+      constraints: 20240130162356.0.0
+      prereleases: {}
+  serviceAccountName: workload-installer
+  values:
+  - secretRef:
+      name: package-values
