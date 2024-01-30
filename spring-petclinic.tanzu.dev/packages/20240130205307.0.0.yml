@@ -1,0 +1,28 @@
+apiVersion: data.packaging.carvel.dev/v1alpha1
+kind: Package
+metadata:
+  name: spring-petclinic.tanzu.dev.20240130205307.0.0
+spec:
+  refName: spring-petclinic.tanzu.dev
+  version: 20240130205307.0.0
+  releaseNotes: |
+    Release v20240130205307.0.0 of package spring-petclinic.tanzu.dev
+  template:
+    spec:
+      fetch:
+      - imgpkgBundle:
+          image: us-east4-docker.pkg.dev/adhol-playground/supplychain/workload/spring-petclinic-bundle@sha256:63263709b3b54df782fd72098da099b44687c60332dd4507520ee8ba89338db0
+      template:
+      - ytt:
+          paths:
+          - '-'
+      - kbld:
+          paths:
+          - .imgpkg/images.yml
+          - '-'
+      deploy:
+      - kapp: {}
+  valuesSchema:
+    openAPIv3:
+      nullable: true
+      default: null
