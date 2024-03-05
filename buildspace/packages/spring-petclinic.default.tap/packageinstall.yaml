@@ -6,7 +6,7 @@ spec:
   packageRef:
     refName: spring-petclinic.default.tap
     versionSelection:
-      constraints: 20240305223148.0.0
+      constraints: 20240305225423.0.0
       prereleases: {}
   serviceAccountName: default
   values:
