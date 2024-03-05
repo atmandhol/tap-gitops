@@ -6,4 +6,12 @@ metadata:
 stringData:
   values.yml: |
     ---
-    # workload_name: example
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      runAsNonRoot: false
+      runAsUser: 1000
+      seccompProfile:
+        type: RuntimeDefault
