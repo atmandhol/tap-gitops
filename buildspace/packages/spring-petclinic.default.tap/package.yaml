@@ -1,17 +1,17 @@
 apiVersion: data.packaging.carvel.dev/v1alpha1
 kind: Package
 metadata:
-  name: spring-petclinic.default.tap.20240305225423.0.0
+  name: spring-petclinic.default.tap.20240318141801.0.0
 spec:
   refName: spring-petclinic.default.tap
-  version: 20240305225423.0.0
+  version: 20240318141801.0.0
   releaseNotes: |
-    Release v20240305225423.0.0 of package spring-petclinic.default.tap
+    Release v20240318141801.0.0 of package spring-petclinic.default.tap
   template:
     spec:
       fetch:
       - imgpkgBundle:
-          image: us-east4-docker.pkg.dev/adhol-playground/supplychain/workload/spring-petclinic-bundle@sha256:c7a9b18bae9f5f37a0e2fc4c1a4412167900fbb1b1f4f4d7475d336f47842e1a
+          image: us-east4-docker.pkg.dev/adhol-playground/supplychain/workload/spring-petclinic-bundle@sha256:a8658e4f32a9d5df1b103f6d15249576830609c69653d7d86fa8370f36563c40
       template:
       - ytt:
           paths:
