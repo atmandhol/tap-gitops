@@ -28,3 +28,38 @@ spec:
         - componentRef:
             name: git-writer-pr-1.0.0
           name: git-writer-pr
+    config:
+        overrides:
+          - path: spec.build
+            value:
+                serviceAccountName: "default"
+                builder:
+                  kind: "clusterbuilder"
+                  name: "default"
+                cache:
+                  image: ""
+                  enabled: false
+          - path: spec.registry
+            value:
+                repository: "adhol-playground/supplychain/workload"
+                server: "us-east4-docker.pkg.dev"
+          - path: spec.gitOps
+            value:
+                baseBranch: "main"
+                subPath: "dev/packages"
+                url: "https://github.com/atmandhol/tap-gitops"
+          - path: spec.carvel.serviceAccountName
+            value: default
+          - path: spec.carvel.packageDomain
+            value: "default.tap"
+          - path: spec.carvel.valuesSecretName
+            value: ""
+          - path: spec.carvel.iaasAuthEnabled
+            value: true
+          - path: spec.carvel.caCertData
+            value: ""
+        defaults:
+          - path: spec.source.git.branch
+            value: main
+          - path: spec.source.git.url
+            value: https://github.com/vmware-tanzu/application-accelerator-samples
