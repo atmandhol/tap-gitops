@@ -1,0 +1,16 @@
+---
+apiVersion: kappctrl.k14s.io/v1alpha1
+kind: App
+metadata:
+ name: tanzu-java-web-app-sync
+spec:
+  fetch:
+  - git:
+    url: https://github.com/atmandhol/tap-gitops
+    ref: origin/tap
+    subPath: packages/tanzu-java-web-app.dev.alm.dev
+  template:
+  - ytt: {}
+  deploy:
+  - kapp:
+    rawOptions: ["--dangerous-allow-empty-list-of-resources=true"]

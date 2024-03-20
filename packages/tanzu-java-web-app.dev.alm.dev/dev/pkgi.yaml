@@ -1,0 +1,24 @@
+---
+apiVersion: packaging.carvel.dev/v1alpha1
+kind: PackageInstall
+metadata:
+ name: tanzu-java-web-app
+spec:
+ serviceAccountName: default
+ packageRef:
+   refName: tanzu-java-web-app.dev.alm.dev
+   versionSelection:
+     constraints: ">=0.0.0"
+ values:
+ - secretRef:
+     name: tanzu-java-web-app-values
+---
+apiVersion: v1
+kind: Secret
+metadata:
+ name: tanzu-java-web-app-values
+stringData:
+ values.yaml: |
+   ---
+   workload_name: tanzu-java-web-app
+   replicas: 1
