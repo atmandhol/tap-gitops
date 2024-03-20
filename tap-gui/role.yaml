@@ -10,14 +10,15 @@ rules:
   - apiGroups: ["packaging.carvel.dev"]
     resources: ["packageinstalls"]
     verbs: ["get", "list", "create", "update", "delete", "patch"]
-  - apiGroups: [""]
-    resources: ["secrets"]
-    verbs: ["get", "list", "create", "update", "delete", "patch"]
+  # - apiGroups: [""]
+  #   resources: ["secrets"]
+  #   verbs: ["get", "list", "create", "update", "delete", "patch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: RoleBinding
 metadata:
   name: carvel-gitops
+  namespace: tap-gui
 subjects:
 - kind: ServiceAccount
   name: tap-gui-viewer
