@@ -1,0 +1,28 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: app-package-and-pkgi-install-role
+rules:
+  - apiGroups: ["data.packaging.carvel.dev"]
+    resources: ["packages"]
+    verbs: ["get", "list", "create", "update", "delete", "patch"]
+  - apiGroups: ["packaging.carvel.dev"]
+    resources: ["packageinstalls"]
+    verbs: ["get", "list", "create", "update", "delete", "patch"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "create", "update", "delete", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: carvel-gitops
+subjects:
+- kind: ServiceAccount
+  name: tap-gui-viewer
+  namespace: tap-gui
+roleRef:
+  kind: ClusterRole
+  name: app-package-and-pkgi-install-role
+  apiGroup: rbac.authorization.k8s.io
