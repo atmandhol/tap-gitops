@@ -1,0 +1,73 @@
+apiVersion: supply-chain.apps.tanzu.vmware.com/v1alpha1
+kind: Component
+metadata:
+    name: app-config-web-1.0.0
+spec:
+    config:
+        - path: spec.registry
+          schema:
+            description: |
+                Configuration for the registry to use
+            properties:
+                repository:
+                    description: The name of the repository
+                    example: my-repository
+                    type: string
+                server:
+                    description: The name of the registry server, e.g. docker.io
+                    example: docker.io
+                    type: string
+            required:
+                - server
+                - repository
+            type: object
+    description: |
+        Generates configuration for a Web application from a Conventions PodIntent.
+        Web applications contain a Knative Service.
+    inputs:
+        - name: conventions
+          type: conventions
+    outputs:
+        - digest: $(pipeline.results.digest)
+          name: oci-yaml-files
+          type: oci-yaml-files
+          url: $(pipeline.results.url)
+        - digest: $(pipeline.results.digest-overlay)
+          name: oci-ytt-files
+          type: oci-ytt-files
+          url: $(pipeline.results.url-overlay)
+    pipelineRun:
+        params:
+            - name: config-url
+              value: $(inputs.conventions.url)
+            - name: workload-name
+              value: $(workload.metadata.name)
+            - name: workload-labels
+              value: $(workload.metadata.labels)
+            - name: workload-annotations
+              value: $(workload.metadata.annotations)
+        pipelineRef:
+            name: app-config-web
+        taskRunTemplate:
+            podTemplate:
+                securityContext:
+                    fsGroup: 1000
+                    runAsGroup: 1000
+                    runAsUser: 1001
+        workspaces:
+            - name: shared-data
+              volumeClaimTemplate:
+                spec:
+                    accessModes:
+                        - ReadWriteOnce
+                    resources:
+                        requests:
+                            storage: 1Gi
+            - name: overlay-data
+              volumeClaimTemplate:
+                spec:
+                    accessModes:
+                        - ReadWriteOnce
+                    resources:
+                        requests:
+                            storage: 1Gi

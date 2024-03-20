@@ -1,0 +1,59 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+    name: store-content-oci
+spec:
+    params:
+        - name: workload-name
+          type: string
+    results:
+        - name: digest
+          type: string
+        - name: url
+          type: string
+        - name: message
+          type: string
+    stepTemplate:
+        computeResources: {}
+        securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+                drop:
+                    - ALL
+            runAsGroup: 1001
+            runAsNonRoot: true
+            runAsUser: 1001
+            seccompProfile:
+                type: RuntimeDefault
+    steps:
+        - computeResources: {}
+          env:
+            - name: OCI_SERVER
+              valueFrom:
+                secretKeyRef:
+                    key: server
+                    name: oci-store
+            - name: OCI_REPOSITORY
+              valueFrom:
+                secretKeyRef:
+                    key: repository
+                    name: oci-store
+          image: registry.tanzu.vmware.com/tanzu-application-platform/tap-packages@sha256:063cc10922de5016827bd369a23600116bc9bf1712c9c91a92199bb4b81bc266
+          name: store
+          script: |-
+            #!/bin/bash
+
+            set -euo pipefail
+
+            # FIXME this line is horrible, but I don't (yet) want to write my own binary to do this
+            IMAGE_NAME=$(imgpkg push -i ${OCI_SERVER}/${OCI_REPOSITORY}/$(params.workload-name)-store -f $(workspaces.input.path) --tty | grep Pushed | sed "s/Pushed//" | sed "s/'//g" | sed 's/ //g')
+            if [ $? -ne 0 ]; then
+              printf "upload failed" | tee $(results.message.path)
+              exit 1
+            fi
+
+            printf "${IMAGE_NAME#*sha256:}" > $(results.digest.path)
+            printf "${IMAGE_NAME}" > $(results.url.path)
+    workspaces:
+        - description: The content to be tar'ed and sent
+          name: input

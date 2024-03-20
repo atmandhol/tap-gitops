@@ -1,9 +1,0 @@
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: spring-petclinic.default.tap-values
-stringData:
-  values.yml: |
-    ---
-    # workload_name: example

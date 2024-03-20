@@ -1,0 +1,216 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+    name: conventions
+spec:
+    description: Generates the Pod Conventions for a built image
+    params:
+        - description: The image to pass to the Cartographer Conventions service
+          name: image-url
+          type: string
+        - description: The workload object
+          name: workload
+          type: string
+        - description: The name of the workload
+          name: workload-name
+          type: string
+    results:
+        - description: url of the resulting source object you can use in your chain
+          name: url
+          type: string
+          value: $(tasks.store.results.url)
+        - description: digest of the shipped content sent to 'url'
+          name: digest
+          type: string
+          value: $(tasks.store.results.digest)
+    tasks:
+        - name: prepare
+          params:
+            - name: workload
+              value: $(params.workload)
+            - name: workload-name
+              value: $(params.workload-name)
+            - name: image-url
+              value: $(params.image-url)
+          taskSpec:
+            metadata: {}
+            params:
+                - name: image-url
+                  type: string
+                - name: workload
+                  type: string
+                - name: workload-name
+                  type: string
+            results:
+                - description: the resource to create in the next step
+                  name: resource
+                  type: string
+                - name: message
+                  type: string
+            spec: null
+            stepTemplate:
+                computeResources: {}
+                securityContext:
+                    allowPrivilegeEscalation: false
+                    capabilities:
+                        drop:
+                            - ALL
+                    runAsNonRoot: true
+                    runAsUser: 1001
+                    seccompProfile:
+                        type: RuntimeDefault
+            steps:
+                - computeResources: {}
+                  image: registry.tanzu.vmware.com/tanzu-application-platform/tap-packages@sha256:9cd864d62cbcb074a90e38e17344ec45402e0e7215ee20740b061fd43290ccf8
+                  name: prepare-resource
+                  script: |
+                    #!/usr/bin/env bash
+
+                    set -euo pipefail
+
+                    # Verify that there are no env items with both 'value' and 'valueFrom' keys
+                    readonly BAD_ENVS="$(echo '$(params.workload)' | yq '.spec.env[] | select(has("value") and has ("valueFrom")) | .name')"
+                    if [[ -n $BAD_ENVS ]]; then
+                      echo "ERROR: env item(s) with name(s) '$BAD_ENVS' have both value and valueFrom keys" | tee $(results.message.path)
+                      exit 1
+                    fi
+
+                    echo '#@data/values' >> /tmp/values.yaml
+                    echo '---' >> /tmp/values.yaml
+                    echo '$(params.workload)' | yq -P -o yaml '{"env": .spec.env}' >> /tmp/values.yaml
+
+                    echo
+                    echo "[DEBUG] values.yaml"
+                    cat /tmp/values.yaml
+
+                    cat << EOF > /tmp/template.yaml
+                    #@ load("@ytt:data", "data")
+                    ---
+                    serviceAccountName: default
+                    template:
+                      metadata:
+                        annotations:
+                          developer.conventions/target-containers: workload
+                        labels:
+                          app.kubernetes.io/component: run
+                          app.kubernetes.io/part-of: $(params.workload-name)
+                          apps.tanzu.vmware.com/has-tests: "true"
+                          apps.tanzu.vmware.com/workload-type: web
+                          carto.run/workload-name: $(params.workload-name)
+                      spec:
+                        containers:
+                          - image: $(params.image-url)
+                            name: workload
+                            resources: {}
+                            securityContext:
+                              allowPrivilegeEscalation: false
+                              runAsUser: 1001
+                              capabilities:
+                                drop:
+                                  - ALL
+                              seccompProfile:
+                                type: "RuntimeDefault"
+                              runAsNonRoot: true
+                            #@ if/end hasattr(data.values, "env"):
+                            env: #@ data.values.env
+                        serviceAccountName: default
+                    EOF
+
+                    echo
+                    echo "[DEBUG] template.yaml"
+                    cat /tmp/template.yaml
+
+                    ytt -f /tmp/template.yaml -f /tmp/values.yaml > /tmp/podintent.yaml
+
+                    echo
+                    echo "[DEBUG] podintent.yaml"
+                    cat /tmp/podintent.yaml
+
+                    cat /tmp/podintent.yaml | yq -oj | jq -c > $(results.resource.path)
+        - name: conventions
+          params:
+            - name: image-url
+              value: $(params.image-url)
+            - name: workload-name
+              value: $(params.workload-name)
+            - name: resource
+              value: $(tasks.prepare.results.resource)
+          runAfter:
+            - prepare
+          taskSpec:
+            apiVersion: managed-resource-controller.apps.tanzu.vmware.com/v1alpha1
+            kind: ManagedResource
+            metadata: {}
+            params:
+                - name: image-url
+                  type: string
+                - name: workload-name
+                  type: string
+                - name: resource
+                  type: string
+            spec:
+                healthRule:
+                    singleConditionType: ConventionsApplied
+                resourceSpec:
+                    apiVersion: conventions.carto.run/v1alpha1
+                    kind: PodIntent
+                    metadata:
+                        generateName: $(params.workload-name)-
+                    spec: $(params.resource)
+                resultMappings:
+                    - name: template
+                      path: status.template
+        - name: format-result
+          params:
+            - name: json
+              value: $(tasks.conventions.results.template)
+            - name: workload-name
+              value: $(params.workload-name)
+          runAfter:
+            - conventions
+          taskSpec:
+            metadata: {}
+            params:
+                - name: json
+                  type: string
+                - name: workload-name
+                  type: string
+            spec: null
+            stepTemplate:
+                computeResources: {}
+                securityContext:
+                    allowPrivilegeEscalation: false
+                    capabilities:
+                        drop:
+                            - ALL
+                    runAsNonRoot: true
+                    runAsUser: 1001
+                    seccompProfile:
+                        type: RuntimeDefault
+            steps:
+                - computeResources: {}
+                  image: registry.tanzu.vmware.com/tanzu-application-platform/tap-packages@sha256:9cd864d62cbcb074a90e38e17344ec45402e0e7215ee20740b061fd43290ccf8
+                  name: format-result
+                  script: "#!/usr/bin/env bash\n\nset -x\nset -euo pipefail\n\ncd `mktemp -d`\ncat << EOF > values.yaml\n#@data/values\n\n---\nEOF\n\necho '$(params.json)' | yq -P -o yaml >> values.yaml\n\necho \"[DEBUG] values.yaml\"\ncat values.yaml\n\ncat << EOF > template.yaml\n#@ load(\"@ytt:data\", \"data\")\n\n---\ntemplate: \n  spec: #@ data.values.spec\nEOF\n\necho \"[DEBUG] template.yaml\"\ncat template.yaml\n\nytt -f template.yaml -f values.yaml > app-config.yaml\necho \"[DEBUG] app-config.yaml\"\ncat app-config.yaml\n\nrm template.yaml\nrm values.yaml\n\ncp app-config.yaml $(workspaces.shared-data.path)/\n"
+            workspaces:
+                - description: The shared content
+                  name: shared-data
+          workspaces:
+            - name: shared-data
+        - name: store
+          params:
+            - name: workload-name
+              value: $(params.workload-name)
+          runAfter:
+            - format-result
+          taskRef:
+            kind: Task
+            name: store-content-oci
+          workspaces:
+            - name: input
+              workspace: shared-data
+    workspaces:
+        - description: |
+            This workspace contains the cloned repo files, so they can be read by the
+            next task.
+          name: shared-data

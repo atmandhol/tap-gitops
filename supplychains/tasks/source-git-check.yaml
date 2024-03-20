@@ -1,0 +1,73 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+    name: source-git-check
+spec:
+    params:
+        - default: ""
+          description: A git branch ref to watch for new source
+          name: git-branch
+          type: string
+        - default: ""
+          description: A git tag ref to watch for new source
+          name: git-tag
+          type: string
+        - default: ""
+          description: A git commit sha to use
+          name: git-commit
+          type: string
+        - description: The url to the git source repository. +Required
+          name: git-url
+          type: string
+    results:
+        - description: The url to the git source repository.
+          name: url
+          type: string
+        - description: The sha to clone as configured by commit/branch/tag
+          name: sha
+          type: string
+        - description: The sha to clone as configured by commit/branch/tag
+          name: checksum
+          type: string
+        - description: Important result description, especially for error messages
+          name: message
+          type: string
+    stepTemplate:
+        computeResources: {}
+        securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+                drop:
+                    - ALL
+            runAsNonRoot: true
+            runAsUser: 1001
+            seccompProfile:
+                type: RuntimeDefault
+    steps:
+        - computeResources: {}
+          image: registry.tanzu.vmware.com/tanzu-application-platform/tap-packages@sha256:475bcb58613179455b9de3b258ca3861fa04ae2d89083fca5f39dd9cf9647d29
+          name: get-latest-commit
+          script: |
+            #!/usr/bin/env sh
+            set -eu
+
+            if [ "$(params.git-url)" == "" ]; then
+              printf "No git-url provided. git-url must exist" | tee $(results.message.path)
+              exit 1
+            fi
+
+            printf "$(params.git-url)" | tee $(results.url.path)
+
+            if [ "$(params.git-branch)" != "" ]; then
+              git ls-remote --heads $(params.git-url) $(params.git-branch) | awk '{print $1}' | tr -d '\n' | tee $(results.sha.path)
+              printf "using git-branch: $(params.git-branch)" | tee $(results.message.path)
+            elif [ "$(params.git-tag)" != "" ]; then
+              git ls-remote --tags $(params.git-url) refs/tags/$(params.git-tag) | awk '{print $1}' | tr -d '\n' | tee $(results.sha.path)
+              printf "using git-tag: $(params.git-tag)" | tee $(results.message.path)
+            elif [ "$(params.git-commit)" != "" ]; then
+              printf "$(params.git-commit)" | tee $(results.sha.path)
+              printf "using git-commit: $(params.git-commit)" | tee $(results.message.path)
+            else
+              printf "Cannot look for source, you must provide one of git-branch, git-tag, git-commit or git-url." | tee $(results.message.path)
+              exit 1
+            fi

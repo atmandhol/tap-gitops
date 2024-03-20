@@ -1,0 +1,94 @@
+apiVersion: supply-chain.apps.tanzu.vmware.com/v1alpha1
+kind: Component
+metadata:
+    name: git-writer-pr-1.0.0
+spec:
+    config:
+        - path: spec.gitOps
+          schema:
+            properties:
+                baseBranch:
+                    default: main
+                    description: the base branch to create PRs against
+                    type: string
+                subPath:
+                    default: ""
+                    description: the relative path within the gitops repository to add the package configuration to.
+                    example: my-project/spaces/my-app-staging
+                    type: string
+                url:
+                    description: the repository to push the pull request to
+                    example: https://github.com/my-org/my-gitops-repo
+                    type: string
+            required:
+                - url
+            type: object
+    description: Writes carvel package config to a gitops repository and opens a PR
+    inputs:
+        - name: package
+          type: package
+    outputs:
+        - digest: $(pipeline.results.digest)
+          name: git-pr
+          type: git-pr
+          url: $(pipeline.results.url)
+    pipelineRun:
+        params:
+            - name: package-url
+              value: $(inputs.package.url)
+            - name: workload-name
+              value: $(workload.metadata.name)
+            - name: gitops-url
+              value: $(workload.spec.gitOps.url)
+            - name: commit-branch
+              value: update-$(workload.metadata.name)
+            - name: base-branch
+              value: $(workload.spec.gitOps.baseBranch)
+            - name: git-user
+              value: Cartographer v2
+            - name: git-email
+              value: v2@supply-chain.apps.tanzu.vmware.com
+            - name: git-commit-message
+              value: New Commit
+            - name: sub-path
+              value: $(workload.spec.gitOps.subPath)
+            - name: git-files
+              value: ""
+        pipelineRef:
+            name: git-writer
+        taskRunSpecs:
+            - pipelineTaskName: fetch
+              podTemplate:
+                securityContext:
+                    fsGroup: 1000
+                    runAsGroup: 1000
+                    runAsUser: 1001
+            - pipelineTaskName: clone-gitops-repo
+              podTemplate:
+                securityContext:
+                    fsGroup: 1000
+                    runAsGroup: 1000
+                    runAsUser: 1001
+            - pipelineTaskName: write
+              podTemplate:
+                securityContext:
+                    fsGroup: 1000
+                    runAsGroup: 1000
+                    runAsUser: 1001
+        workspaces:
+            - name: package-config
+              volumeClaimTemplate:
+                spec:
+                    accessModes:
+                        - ReadWriteOnce
+                    resources:
+                        requests:
+                            storage: 100Mi
+            - name: gitops-repo
+              volumeClaimTemplate:
+                spec:
+                    accessModes:
+                        - ReadWriteOnce
+                    resources:
+                        requests:
+                            storage: 1Gi

@@ -1,0 +1,142 @@
+apiVersion: supply-chain.apps.tanzu.vmware.com/v1alpha1
+kind: Component
+metadata:
+    name: buildpack-build-1.0.0
+spec:
+    config:
+        - path: spec.registry
+          schema:
+            description: |
+                Registry to use
+            properties:
+                repository:
+                    description: The repository to use
+                    type: string
+                server:
+                    description: The registry address
+                    type: string
+            required:
+                - server
+                - repository
+            type: object
+        - path: spec.build
+          schema:
+            description: |
+                Kpack build specification
+            properties:
+                builder:
+                    description: Configure workload to use a non-default builder or clusterbuilder
+                    properties:
+                        kind:
+                            default: clusterbuilder
+                            description: builder kind
+                            example: clusterbuilder
+                            type: string
+                        name:
+                            default: default
+                            description: builder name
+                            example: tiny-jammy
+                            type: string
+                    type: object
+                cache:
+                    description: |
+                        cache options
+                    properties:
+                        enabled:
+                            default: false
+                            description: |
+                                whether to use a cache image
+                            type: boolean
+                        image:
+                            default: ""
+                            description: |
+                                cache image to use
+                            example: myregistry.com/some-repository/my-cache
+                            type: string
+                    type: object
+                serviceAccountName:
+                    default: default
+                    description: |
+                        Service account to use
+                    type: string
+            type: object
+        - path: spec.source.subPath
+          schema:
+            default: ""
+            description: path inside the source to build from (build has no access to paths above the subPath)
+            example: some-dir
+            type: string
+        - path: spec.build.env
+          schema:
+            items:
+                properties:
+                    name:
+                        type: string
+                    value:
+                        type: string
+                required:
+                    - name
+                    - value
+                type: object
+            type: array
+    description: Builds an app with buildpacks using kpack
+    inputs:
+        - name: source
+          type: source
+        - name: git
+          type: git
+    outputs:
+        - digest: ""
+          name: image
+          type: image
+          url: $(pipeline.results.url)
+    pipelineRun:
+        params:
+            - name: source-url
+              value: $(inputs.source.url)
+            - name: revision
+              value: $(inputs.git.digest)
+            - name: sub-path
+              value: $(workload.spec.source.subPath)
+            - name: workload-name
+              value: $(workload.metadata.name)
+            - name: image
+              value: $(workload.spec.registry.server)/$(workload.spec.registry.repository)/$(workload.metadata.name)
+            - name: run-image
+              value: $(resumptions.check-builders.results.run-image)
+            - name: builder-image
+              value: $(resumptions.check-builders.results.builder-image)
+            - name: cache-enabled
+              value: $(workload.spec.build.cache.enabled)
+            - name: cache-image
+              value: $(workload.spec.build.cache.image)
+            - name: service-account-name
+              value: $(workload.spec.build.serviceAccountName)
+            - name: workload
+              value: $(workload)
+        pipelineRef:
+            name: buildpack-build
+        taskRunSpecs:
+            - pipelineTaskName: calculate-digest
+              podTemplate:
+                securityContext:
+                    fsGroup: 1000
+                    runAsGroup: 1000
+                    runAsUser: 1001
+            - pipelineTaskName: prepare-build
+              podTemplate:
+                securityContext:
+                    fsGroup: 1000
+                    runAsGroup: 1000
+                    runAsUser: 1001
+    resumptions:
+        - name: check-builders
+          params:
+            - name: builder-name
+              value: $(workload.spec.build.builder.name)
+            - name: builder-kind
+              value: $(workload.spec.build.builder.kind)
+          taskRef:
+            name: check-builders
+          trigger:
+            runAfter: 600s

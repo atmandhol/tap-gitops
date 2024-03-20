@@ -1,0 +1,45 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+    name: deployer
+spec:
+    description: Deploys K8s resources to the cluster.
+    params:
+        - default: ""
+          description: Path to the yaml to deploy
+          name: subpath
+          type: string
+        - description: Name of the kapp app to be deployed
+          name: kapp-app-name
+          type: string
+    results:
+        - name: message
+          type: string
+    stepTemplate:
+        computeResources: {}
+        securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+                drop:
+                    - ALL
+            runAsNonRoot: true
+            runAsUser: 1001
+            seccompProfile:
+                type: RuntimeDefault
+    steps:
+        - computeResources: {}
+          image: registry.tanzu.vmware.com/tanzu-application-platform/tap-packages@sha256:b48e8348699d9b9c7c98caa1472d4f405518ab71241d054dd4f220ffceedfe46
+          name: deploy-using-kubectl
+          script: |-
+            #!/bin/bash
+
+            set -uo pipefail
+
+            MESSAGE=$(kapp deploy --app $(params.kapp-app-name) -f "$(workspaces.content.path)/$(params.subpath)" --yes)
+            if [ $? -ne 0 ]; then
+              printf "kapp deploy failed. $MESSAGE" | tee $(results.message.path)
+              exit 1
+            fi
+    workspaces:
+        - description: The folder where the yaml is
+          name: content

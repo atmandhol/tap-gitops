@@ -1,0 +1,49 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+    name: fetch-tgz-content-oci
+spec:
+    params:
+        - description: location of the input
+          name: url
+          type: string
+    results:
+        - name: message
+          type: string
+    stepTemplate:
+        computeResources: {}
+        securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+                drop:
+                    - ALL
+            runAsGroup: 1001
+            runAsNonRoot: true
+            runAsUser: 1001
+            seccompProfile:
+                type: RuntimeDefault
+    steps:
+        - computeResources: {}
+          image: registry.tanzu.vmware.com/tanzu-application-platform/tap-packages@sha256:063cc10922de5016827bd369a23600116bc9bf1712c9c91a92199bb4b81bc266
+          name: fetch
+          script: |
+            #!/bin/bash
+
+            set -euo pipefail
+
+            DIR=$(mktemp -d)
+
+            imgpkg pull -i $(params.url) -o $DIR
+            if [ $? -ne 0 ]; then
+              printf "download failed" | tee $(results.message.path)
+              exit 1
+            fi
+
+            cp -R $DIR/* $(workspaces.store.path)
+            if [ $? -ne 0 ]; then
+              printf "copy failed" | tee $(results.message.path)
+              exit 1
+            fi
+    workspaces:
+        - description: The store for the content
+          name: store

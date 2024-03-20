@@ -1,0 +1,30 @@
+apiVersion: supply-chain.apps.tanzu.vmware.com/v1alpha1
+kind: SupplyChain
+metadata:
+    name: carvelpackage
+spec:
+    defines:
+        group: supplychains.tanzu.vmware.com
+        kind: CarvelPackage
+        plural: carvelpackages
+        version: v1alpha1
+    description: Build an application from source and store the Carvel package in Git
+    stages:
+        - componentRef:
+            name: source-git-provider-1.0.0
+          name: source-git-provider
+        - componentRef:
+            name: buildpack-build-1.0.0
+          name: buildpack-build
+        - componentRef:
+            name: conventions-1.0.0
+          name: conventions
+        - componentRef:
+            name: app-config-web-1.0.0
+          name: app-config-web
+        - componentRef:
+            name: carvel-package-1.0.0
+          name: carvel-package
+        - componentRef:
+            name: git-writer-pr-1.0.0
+          name: git-writer-pr

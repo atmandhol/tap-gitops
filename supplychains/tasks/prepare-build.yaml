@@ -1,0 +1,56 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+    name: prepare-build
+spec:
+    params:
+        - description: url of source registry image
+          name: source-url
+          type: string
+        - description: image to push built application to
+          name: image
+          type: string
+        - description: builder image to run build on
+          name: builder-image
+          type: string
+        - description: base image for built application
+          name: run-image
+          type: string
+        - description: sub directory in source to become root dir for build
+          name: sub-path
+          type: string
+        - description: git revision of source (used for generating correct build metadata)
+          name: revision
+          type: string
+        - description: whether to use a cache image
+          name: cache-enabled
+          type: string
+        - description: image tag for caching configuration
+          name: cache-image
+          type: string
+        - description: workload resource
+          name: workload
+          type: string
+        - description: name of service account to use for build
+          name: service-account-name
+          type: string
+    results:
+        - description: spec for build resource
+          name: build-spec
+          type: string
+    stepTemplate:
+        computeResources: {}
+        securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+                drop:
+                    - ALL
+            runAsNonRoot: true
+            runAsUser: 1001
+            seccompProfile:
+                type: RuntimeDefault
+    steps:
+        - computeResources: {}
+          image: registry.tanzu.vmware.com/tanzu-application-platform/tap-packages@sha256:50c746d0cb1778ec045426cea512a5fa02a03e064d61890747df6ae1e4e6e4f9
+          name: prepare-resource
+          script: "#!/usr/bin/env bash\n\nset -euo pipefail\ncd `mktemp -d`\n\necho '$(params.workload)' | yq -o json '{\"env\": .spec.build.env}' > env.json\necho '{\"subPath\":\"$(params.sub-path)\"}' > subpath.json\necho '{\"cacheEnabled\":\"$(params.cache-enabled)\"}' > cache-enabled.json\necho '{\"cacheImage\":\"$(params.cache-image)\"}' > cache-image.json\necho '{\"serviceAccountName\":\"$(params.service-account-name)\"}' > sa.json\necho '{\"env\":[{\"name\":\"BP_OCI_SOURCE\", \"value\":\"$(params.revision)\"}]}' > revision.json\n\necho \"[DEBUG] env.json\"\ncat env.json\n\necho \"[DEBUG] cache-image.json\"\ncat cache-image.json\n\necho \"[DEBUG] cache-enabled.json\"\ncat cache-enabled.json\n\necho \"[DEBUG] subpath.json\"\ncat subpath.json\n\necho \"[DEBUG] sa.json\"\ncat sa.json\n\necho \"[DEBUG] revision.json\"\ncat revision.json\n\n# merge all files together and covert to yaml\nyq eval-all '. as $item ireduce ({}; . *+ $item )' env.json cache-image.json cache-enabled.json revision.json subpath.json sa.json | yq -P -o yaml > temp.yaml\n\n# add the ytt header to the values\necho -e \"#@data/values\\n---\\n$(cat temp.yaml)\" > values.yaml\n\n# remove any temp files\nrm -f *.json temp.yaml\n\necho \"[DEBUG] values.yaml\"\ncat values.yaml\n\ncat << EOF > template.yaml\n#@ load(\"@ytt:data\", \"data\")\n---\nbuilder:\n  image: $(params.builder-image)\n#@ if data.values.cacheEnabled:\ncache:\n  registry:\n    #@ if data.values.cacheImage == \"\":\n    tag: $(params.image)-cache\n    #@ else:\n    tag: $(params.cache-image)\n  #@ end\n#@ end\nenv: #@ data.values.env\nresources: {} \nrunImage:\n  image: $(params.run-image)\nserviceAccountName: #@ data.values.serviceAccountName or \"default\"\nsource:\n  registry:\n    image: $(params.source-url)\n  subPath: #@ data.values.subPath\ntags:\n  - $(params.image):latest\nEOF\n\necho \"[DEBUG] template.yaml\"\ncat template.yaml\n\nytt -f template.yaml -f values.yaml > build-spec.yaml\necho \"[DEBUG] build-spec.yaml\"\ncat build-spec.yaml\n\nrm template.yaml values.yaml\n\ncat build-spec.yaml | yq -oj | jq -c > $(results.build-spec.path)"

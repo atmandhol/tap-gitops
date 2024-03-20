@@ -1,0 +1,330 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+    name: carvel-package
+spec:
+    description: A task that builds a Carvel Package
+    params:
+        - description: Name of the Workload. Used as a default for the Carvel Package secret name.
+          name: workload-name
+          type: string
+        - description: Name of the registry + repository to push the imgpkg bundle to.
+          name: imgpkg-bundle-url
+          type: string
+        - default: ""
+          description: |
+            PEM encoded certificate data for the image registry where the files will be pushed to.
+          name: imgpkg-ca-cert-data
+          type: string
+        - default: "false"
+          description: Enable the use of IAAS based authentication for imgpkg.
+          name: imgpkg-iaas-auth-enabled
+          type: string
+        - description: The name of the Carvel Package
+          name: carvel-package-name
+          type: string
+        - description: The domain of the Carvel Package
+          name: carvel-package-domain
+          type: string
+        - description: Secret that provides customized values to the package installation's templating steps
+          name: carvel-package-values-secret-name
+          type: string
+        - default: default
+          description: Service account that gives kapp-controller privileges to create resources in the namespace
+          name: carvel-package-service-account
+          type: string
+        - default: ""
+          description: the sub-path into the git repository in which to write the configuration.
+          name: gitops-subpath
+          type: string
+    results:
+        - description: Carvel distributable packages that enables users to install on a different cluster.
+          name: carvel-package
+          type: string
+        - name: imgpkg-bundle
+          type: string
+        - name: carvel-package-version
+          type: string
+    stepTemplate:
+        computeResources: {}
+        securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+                drop:
+                    - ALL
+            runAsNonRoot: true
+            runAsUser: 1001
+            seccompProfile:
+                type: RuntimeDefault
+    steps:
+        - computeResources: {}
+          env:
+            - name: DOCKER_CONFIG
+              value: /tekton/home/.docker/
+            - name: HOME
+              value: /tekton/home/
+          image: registry.tanzu.vmware.com/tanzu-application-platform/tap-packages@sha256:b48e8348699d9b9c7c98caa1472d4f405518ab71241d054dd4f220ffceedfe46
+          name: build-imgpkg-bundle
+          script: |-
+            #!/bin/bash
+
+            set -euox pipefail
+
+            cd `mktemp -d`
+
+            echo "[DEBUG] $(workspaces.content.path)"
+            ls -al $(workspaces.content.path)
+
+            if ls $(workspaces.content.path)/*.yaml 1> /dev/null 2>&1; then
+              mv $(workspaces.content.path)/*.yaml .
+            fi
+
+            echo "[DEBUG] ."
+            ls -la
+
+            #############################################
+            #    build imgpkg bundle, openapiv3 spec    #
+            #############################################
+
+            values_filename=""
+            if [ -f "server-template-values.yaml" ]; then
+              values_filename=server-template-values.yaml
+            elif [ -f "web-template-values.yaml" ]; then
+              values_filename=web-template-values.yaml
+            elif [ -f "worker-template-values.yaml" ]; then
+              values_filename=worker-template-values.yaml
+            fi
+
+            if [ ! -z "$values_filename" ]; then
+              ytt -f "$values_filename" --data-values-schema-inspect -o openapi-v3 > "$(workspaces.content.path)/schema-openapi.yml"
+            fi
+
+            mkdir -p .imgpkg
+            kbld -f . --imgpkg-lock-output ".imgpkg/images.yml"
+
+            echo "[DEBUG] .imgpkg/images.yml"
+            cat .imgpkg/images.yml
+
+            imgpkg_params=""
+            imgpkg_cert='$(params.imgpkg-ca-cert-data)'
+            if [[ ! -z "$imgpkg_cert" ]]; then
+              certs_dir=$(mktemp -d)
+              echo "$imgpkg_cert" > "$certs_dir/cert"
+              imgpkg_params="--registry-ca-cert-path=$certs_dir/cert"
+            fi
+
+            # this if-block can be simplified once params validation is implemented in supplychain for components
+            iaas_auth_enabled='$(params.imgpkg-iaas-auth-enabled)'
+            if [[ -z "$iaas_auth_enabled" ]]; then
+              export IMGPKG_ENABLE_IAAS_AUTH="false"
+            else
+              export IMGPKG_ENABLE_IAAS_AUTH="$iaas_auth_enabled"
+            fi
+
+            imgpkg_bundle_url='$(params.imgpkg-bundle-url)'
+            imgpkg push $imgpkg_params -b "$imgpkg_bundle_url" -f . --lock-output "package.lock"
+            IMGPKG_BUNDLE="$(awk -F"image: " '{if ($2) print $2;}' package.lock)"
+            cp package.lock $(workspaces.content.path)
+
+            echo -n "$IMGPKG_BUNDLE" > $(results.imgpkg-bundle.path)
+        - computeResources: {}
+          env:
+            - name: DOCKER_CONFIG
+              value: /tekton/home/.docker/
+            - name: HOME
+              value: /tekton/home/
+          image: registry.tanzu.vmware.com/tanzu-application-platform/tap-packages@sha256:b48e8348699d9b9c7c98caa1472d4f405518ab71241d054dd4f220ffceedfe46
+          name: package-version
+          script: |-
+            #!/bin/bash
+
+            set -euo pipefail
+
+            cd `mktemp -d`
+
+            cp $(workspaces.content.path)/package.lock .
+            rm $(workspaces.content.path)/package.lock
+
+            imagename="$(awk -F"image: " '{if ($2) print $2;}' package.lock)"
+            echo "[DEBUG] imagename"
+            echo "$imagename"
+
+            git_commit=""
+            if [[ ! -z "$imagename" ]]; then
+              revision="$(krane config "$imagename" | jq -r '.config.Labels["org.opencontainers.image.revision"]')"
+              regex="^([a-zA-Z0-9\/_-]+)(\@sha1:)?([0-9a-f]{40})$"
+              if [[ "$revision" =~ $regex ]]; then
+                git_commit="${BASH_REMATCH[3]:0:7}"
+              fi
+            fi
+
+            current_date="$(date "+%Y%m%d%H%M%S.0.0")"
+
+            if [[ -z "${git_commit}" ]]; then
+              CARVEL_PACKAGE_VERSION="${current_date}"
+            else
+              CARVEL_PACKAGE_VERSION="${current_date}+build.${git_commit}"
+            fi
+
+            echo -n "$CARVEL_PACKAGE_VERSION" > $(results.carvel-package-version.path)
+        - computeResources: {}
+          env:
+            - name: DOCKER_CONFIG
+              value: /tekton/home/.docker/
+            - name: HOME
+              value: /tekton/home/
+          image: registry.tanzu.vmware.com/tanzu-application-platform/tap-packages@sha256:b48e8348699d9b9c7c98caa1472d4f405518ab71241d054dd4f220ffceedfe46
+          name: build-carvel-package
+          script: |-
+            #!/bin/bash
+
+            set -euo pipefail
+
+            cd `mktemp -d`
+
+            # if params.carvel-package-name unset, use workload name
+            CARVEL_PACKAGE_SHORT_NAME="$(params.carvel-package-name)"
+            if [ -z "${CARVEL_PACKAGE_SHORT_NAME}" ]; then
+              CARVEL_PACKAGE_SHORT_NAME="$(params.workload-name)"
+            fi
+
+            # if params.carvel-package-domain unset, use default.tap
+            CARVEL_PACKAGE_DOMAIN="$(params.carvel-package-domain)"
+            if [ -z "${CARVEL_PACKAGE_DOMAIN}" ]; then
+              CARVEL_PACKAGE_DOMAIN="default.tap"
+            fi
+
+            CARVEL_PACKAGE_NAME="${CARVEL_PACKAGE_SHORT_NAME}.${CARVEL_PACKAGE_DOMAIN}"
+
+            echo "[DEBUG] CARVEL_PACKAGE_NAME"
+            echo "${CARVEL_PACKAGE_NAME}"
+
+            ##############################
+            #    build carvel package    #
+            ##############################
+
+            CARVEL_PACKAGE_VERSION="$(cat $(results.carvel-package-version.path))"
+            IMGPKG_BUNDLE="$(cat $(results.imgpkg-bundle.path))"
+            CARVEL_PACKAGE_FILENAME="package.yaml"
+
+            cat <<EOF > ./package-template.yaml
+            #@ load("@ytt:data", "data")
+            #@ load("@ytt:yaml", "yaml")
+
+            apiVersion: data.packaging.carvel.dev/v1alpha1
+            kind: Package
+            metadata:
+              name: ${CARVEL_PACKAGE_NAME}.${CARVEL_PACKAGE_VERSION}
+            spec:
+              refName: ${CARVEL_PACKAGE_NAME}
+              version: ${CARVEL_PACKAGE_VERSION}
+              releaseNotes: |
+                Release v${CARVEL_PACKAGE_VERSION} of package ${CARVEL_PACKAGE_NAME}
+              template:
+                spec:
+                  fetch:
+                  - imgpkgBundle:
+                      image: ${IMGPKG_BUNDLE}
+                  template:
+                  - ytt:
+                      paths:
+                      - "."
+                  - kbld:
+                      paths:
+                      - ".imgpkg/images.yml"
+                      - "-"
+                  deploy:
+                  - kapp: {}
+              #@ if "openapi" in data.values:
+              valuesSchema:
+                openAPIv3: #@ yaml.decode(data.values.openapi)["components"]["schemas"]["dataValues"]
+              #@ end
+            EOF
+
+            if [ -s $(workspaces.content.path)/schema-openapi.yml ]; then
+              ytt -f ./package-template.yaml --data-value openapi="$(cat $(workspaces.content.path)/schema-openapi.yml)" | tee "${CARVEL_PACKAGE_FILENAME}"
+            else
+              ytt -f ./package-template.yaml | tee "${CARVEL_PACKAGE_FILENAME}"
+            fi
+            rm -f $(workspaces.content.path)/schema-openapi.yml
+
+            #####################################
+            #         build values secret       #
+            #####################################
+
+            VALUES_SECRET_NAME="${CARVEL_PACKAGE_NAME}-values"
+            if [[ -n "$(params.carvel-package-values-secret-name)" ]]; then
+              VALUES_SECRET_NAME="$(params.carvel-package-values-secret-name)"
+            fi
+
+            CARVEL_SECRET_FILENAME="values.yaml"
+
+            cat <<EOF > ./${CARVEL_SECRET_FILENAME}
+            ---
+            apiVersion: v1
+            kind: Secret
+            metadata:
+              name: ${VALUES_SECRET_NAME}
+            stringData:
+              values.yml: |
+                ---
+                # workload_name: example
+            EOF
+
+            #####################################
+            #    build carvel package install   #
+            #####################################
+
+            CARVEL_PKGI_FILENAME="packageinstall.yaml"
+
+            SA_NAME="default"
+            if [[ -n "$(params.carvel-package-service-account)" ]]; then
+              SA_NAME="$(params.carvel-package-service-account)"
+            fi
+
+            cat <<EOF > ./${CARVEL_PKGI_FILENAME}
+            apiVersion: packaging.carvel.dev/v1alpha1
+            kind: PackageInstall
+            metadata:
+              name: ${CARVEL_PACKAGE_NAME}-pkgi
+            spec:
+              packageRef:
+                refName: ${CARVEL_PACKAGE_NAME}
+                versionSelection:
+                  constraints: ${CARVEL_PACKAGE_VERSION}
+                  prereleases: {}
+              serviceAccountName: ${SA_NAME}
+              values:
+              - secretRef:
+                  name: ${VALUES_SECRET_NAME}
+            EOF
+
+            output_path="$(workspaces.content.path)/${CARVEL_PACKAGE_NAME}"
+            mkdir "${output_path}"
+            cp "${CARVEL_PACKAGE_FILENAME}" "${output_path}"
+            cp "${CARVEL_PKGI_FILENAME}" "${output_path}"
+
+            if ! test -f "$(workspaces.content.path)/gitops/$(params.gitops-subpath)/${CARVEL_PACKAGE_NAME}/${CARVEL_SECRET_FILENAME}"; then
+              echo "writing values file, no values file exists in GitOps repo"
+              cp "${CARVEL_SECRET_FILENAME}" "${output_path}"
+
+              echo "[DEBUG] ${output_path}/${CARVEL_SECRET_FILENAME}"
+              cat "${output_path}/${CARVEL_SECRET_FILENAME}"
+            else
+              echo "skipping values file writing, values file already exists in GitOps repo"
+            fi
+
+            rm -rf "$(workspaces.content.path)/gitops"
+
+            echo "[DEBUG] ${output_path}/${CARVEL_PACKAGE_FILENAME}"
+            cat "${output_path}/${CARVEL_PACKAGE_FILENAME}"
+
+            echo "[DEBUG] ${output_path}/${CARVEL_PKGI_FILENAME}"
+            cat "${output_path}/${CARVEL_PKGI_FILENAME}"
+
+            echo "[DEBUG] $(workspaces.content.path)"
+            ls -al "$(workspaces.content.path)"
+            ls -al "$(workspaces.content.path)/${CARVEL_PACKAGE_NAME}"
+    workspaces:
+        - description: The folder where we write the carvel package version and imgpkg bundle path
+          name: content

@@ -1,0 +1,113 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+    name: buildpack-build
+spec:
+    description: build application image with kpack
+    params:
+        - description: name of workload used to generate build name
+          name: workload-name
+          type: string
+        - description: url of source registry image
+          name: source-url
+          type: string
+        - description: image to push built application to
+          name: image
+          type: string
+        - description: builder image to run build on
+          name: builder-image
+          type: string
+        - description: base image for built application
+          name: run-image
+          type: string
+        - description: sub directory in source to become root dir for build
+          name: sub-path
+          type: string
+        - description: git revision of source (used for generating correct build metadata)
+          name: revision
+          type: string
+        - description: workload resource
+          name: workload
+          type: string
+        - description: name of service account to use for build
+          name: service-account-name
+          type: string
+        - description: image tag for caching configuration
+          name: cache-image
+          type: string
+        - description: whether to use a cache image
+          name: cache-enabled
+          type: string
+    results:
+        - description: url of the built image
+          name: url
+          type: string
+          value: $(tasks.build.results.image)
+        - description: digest of the built image
+          name: digest
+          type: string
+          value: $(tasks.calculate-digest.results.digest)
+    tasks:
+        - name: prepare-build
+          params:
+            - name: source-url
+              value: $(params.source-url)
+            - name: image
+              value: $(params.image)
+            - name: builder-image
+              value: $(params.builder-image)
+            - name: run-image
+              value: $(params.run-image)
+            - name: sub-path
+              value: $(params.sub-path)
+            - name: revision
+              value: $(params.revision)
+            - name: workload
+              value: $(params.workload)
+            - name: service-account-name
+              value: $(params.service-account-name)
+            - name: cache-image
+              value: $(params.cache-image)
+            - name: cache-enabled
+              value: $(params.cache-enabled)
+          taskRef:
+            kind: Task
+            name: prepare-build
+        - name: build
+          params:
+            - name: workload-name
+              value: $(params.workload-name)
+            - name: resource
+              value: $(tasks.prepare-build.results.build-spec)
+          runAfter:
+            - prepare-build
+          taskSpec:
+            apiVersion: managed-resource-controller.apps.tanzu.vmware.com/v1alpha1
+            kind: ManagedResource
+            metadata: {}
+            params:
+                - name: workload-name
+                  type: string
+                - name: resource
+                  type: string
+            spec:
+                healthRule:
+                    singleConditionType: Succeeded
+                resourceSpec:
+                    apiVersion: kpack.io/v1alpha2
+                    kind: Build
+                    metadata:
+                        generateName: $(params.workload-name)-
+                    spec: $(params.resource)
+                resultMappings:
+                    - name: image
+                      path: status.latestImage
+        - name: calculate-digest
+          params:
+            - name: image
+              value: $(tasks.build.results.image)
+          runAfter:
+            - build
+          taskRef:
+            kind: Task
+            name: calculate-digest

@@ -1,0 +1,106 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+    name: git-writer
+spec:
+    description: A pipeline that writes config to a gitops repository
+    params:
+        - description: the URL of the configuration to write.
+          name: package-url
+          type: string
+        - description: the name of the workload.
+          name: workload-name
+          type: string
+        - description: the gitOps repository to write the configuration to.
+          name: gitops-url
+          type: string
+        - description: the base branch to create the commit branch off of.
+          name: base-branch
+          type: string
+        - description: the name of the branch to create the commit on.
+          name: commit-branch
+          type: string
+        - description: the name to use for git commits.
+          name: git-user
+          type: string
+        - description: the e-mail address to use for git commits.
+          name: git-email
+          type: string
+        - description: the message to use for the git commit
+          name: git-commit-message
+          type: string
+        - description: the sub-path into the git repository in which to write the configuration.
+          name: sub-path
+          type: string
+        - description: a Base64-encoded json map of files to write to registry, for example - eyAiUkVBRE1FLm1kIjogIiMgUmVhZG1lIiB9
+          name: git-files
+          type: string
+    results:
+        - description: url of the generated change/pr
+          name: url
+          type: string
+          value: $(tasks.write.results.pr-url)
+        - description: the git sha of the commit change/pr
+          name: digest
+          type: string
+          value: $(tasks.write.results.git-sha)
+    tasks:
+        - name: fetch
+          params:
+            - name: url
+              value: $(params.package-url)
+          taskRef:
+            kind: Task
+            name: fetch-tgz-content-oci
+          workspaces:
+            - name: store
+              workspace: package-config
+        - name: clone-gitops-repo
+          params:
+            - name: url
+              value: $(params.gitops-url)
+            - name: revision
+              value: $(params.base-branch)
+          taskRef:
+            kind: Task
+            name: gitops-git-clone
+          workspaces:
+            - name: output
+              workspace: gitops-repo
+        - name: write
+          params:
+            - name: url
+              value: $(params.gitops-url)
+            - name: revision
+              value: $(params.base-branch)
+            - name: subdirectory
+              value: repo
+            - name: base-branch
+              value: $(params.base-branch)
+            - name: commit-branch
+              value: $(params.commit-branch)
+            - name: git-user-name
+              value: $(params.git-user)
+            - name: git-user-email
+              value: $(params.git-email)
+            - name: sub-path
+              value: $(params.sub-path)
+            - name: git-files
+              value: $(params.git-files)
+            - name: workload-name
+              value: $(params.workload-name)
+          runAfter:
+            - fetch
+          taskRef:
+            kind: Task
+            name: git-writer
+          workspaces:
+            - name: content
+              workspace: package-config
+            - name: gitops-repo
+              workspace: gitops-repo
+    workspaces:
+        - description: This workspace contains the files to be written to the git repo
+          name: package-config
+        - description: This workspace contains the cloned gitops-repo
+          name: gitops-repo

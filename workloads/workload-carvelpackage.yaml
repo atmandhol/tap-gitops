@@ -1,0 +1,26 @@
+apiVersion: supplychains.tanzu.vmware.com/v1alpha1
+kind: CarvelPackage
+metadata:
+  name: spring-petclinic
+spec:
+  gitOps:
+    baseBranch: "main"
+    subPath: "dev/packages"
+    url: "https://github.com/atmandhol/tap-gitops"
+  registry:
+    repository: "adhol-playground/supplychain/workload"
+    server: "us-east4-docker.pkg.dev"
+  source:
+    git:
+      branch: "main"
+      url: "https://github.com/atmandhol/sample-apps.git"
+    subPath: "source/spring-petclinic"
+  build:
+    builder:
+      kind: "clusterbuilder"
+      name: "default"
+    serviceAccountName: "default"
+  carvel:
+    packageName: "spring-petclinic"
+    serviceAccountName: "default"
+    packageDomain: "default.tap"

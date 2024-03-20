@@ -1,0 +1,47 @@
+apiVersion: supply-chain.apps.tanzu.vmware.com/v1alpha1
+kind: Component
+metadata:
+    name: deployer-1.0.0
+spec:
+    config:
+        - path: spec.subPath
+          schema:
+            description: |
+                The path to the yaml to be applied to the cluster.
+            properties:
+                path:
+                    description: The path to the yaml to be applied to the cluster
+                    example: path/to/yaml
+                    type: string
+            required:
+                - path
+            type: object
+    description: Deploys K8s resources to the cluster.
+    inputs:
+        - name: package
+          type: package
+    pipelineRun:
+        params:
+            - name: oci-image-with-yaml
+              value: $(inputs.package.url)
+            - name: subPath
+              value: $(workload.spec.subPath.path)
+            - name: kapp-app-name
+              value: $(workload.metadata.name)
+        pipelineRef:
+            name: deployer
+        taskRunTemplate:
+            podTemplate:
+                securityContext:
+                    fsGroup: 1000
+                    runAsGroup: 1000
+                    runAsUser: 1001
+        workspaces:
+            - name: shared-data
+              volumeClaimTemplate:
+                spec:
+                    accessModes:
+                        - ReadWriteOnce
+                    resources:
+                        requests:
+                            storage: 1Gi

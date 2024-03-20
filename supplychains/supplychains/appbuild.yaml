@@ -1,0 +1,30 @@
+apiVersion: supply-chain.apps.tanzu.vmware.com/v1alpha1
+kind: SupplyChain
+metadata:
+    name: appbuild
+spec:
+    defines:
+        group: supplychains.tanzu.vmware.com
+        kind: AppBuild
+        plural: appbuilds
+        version: v1alpha1
+    description: Build a Server type workload from source and store the Carvel package in Git
+    stages:
+        - componentRef:
+            name: source-git-provider-1.0.0
+          name: source-git-provider
+        - componentRef:
+            name: buildpack-build-1.0.0
+          name: buildpack-build
+        - componentRef:
+            name: conventions-1.0.0
+          name: conventions
+        - componentRef:
+            name: app-config-server-1.0.0
+          name: app-config-server
+        - componentRef:
+            name: carvel-package-1.0.0
+          name: carvel-package
+        - componentRef:
+            name: git-writer-pr-1.0.0
+          name: git-writer-pr

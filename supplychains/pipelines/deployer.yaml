@@ -1,0 +1,45 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+    name: deployer
+spec:
+    description: Package your project into a carvel package
+    params:
+        - name: oci-image-with-yaml
+          type: string
+        - description: Path to the yaml to apply
+          name: subPath
+          type: string
+        - description: Name of the kapp app to be deployed
+          name: kapp-app-name
+          type: string
+    tasks:
+        - name: fetch-yaml
+          params:
+            - name: url
+              value: $(params.oci-image-with-yaml)
+          taskRef:
+            kind: Task
+            name: fetch-tgz-content-oci
+          workspaces:
+            - name: store
+              workspace: shared-data
+        - name: deployer
+          params:
+            - name: subpath
+              value: $(params.subPath)
+            - name: kapp-app-name
+              value: $(params.kapp-app-name)
+          runAfter:
+            - fetch-yaml
+          taskRef:
+            kind: Task
+            name: deployer
+          workspaces:
+            - name: content
+              workspace: shared-data
+    workspaces:
+        - description: |
+            This workspace contains the cloned repo files, so they can be read by the
+            next task.
+          name: shared-data

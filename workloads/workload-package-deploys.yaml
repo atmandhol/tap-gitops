@@ -1,0 +1,14 @@
+apiVersion: supplychains.tanzu.vmware.com/v1alpha1
+kind: PackageDeploy
+metadata:
+  name: spring-petclinic-gitops-deploy
+spec:
+  source:
+    git:
+      branch: "main"
+      url: "https://github.com/atmandhol/tap-gitops.git"
+    subPath: "dev/packages"
+  subPath:
+    #! The path to the yaml to be applied to the cluster
+    #! Required
+    path: "dev/packages"

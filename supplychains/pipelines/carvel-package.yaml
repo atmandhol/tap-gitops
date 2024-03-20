@@ -1,0 +1,146 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+    name: carvel-package
+spec:
+    description: Package your project into a carvel package
+    params:
+        - description: Name of of the workload
+          name: workload-name
+          type: string
+        - description: Location of the config bundle
+          name: config-url
+          type: string
+        - description: Location of the ytt bundle
+          name: ytt-url
+          type: string
+        - description: URL to write the imgpkg bundle for the Carvel Package.
+          name: imgpkg-bundle-url
+          type: string
+        - description: Enable the use of IAAS based authentication for imgpkg.
+          name: imgpkg-iaas-auth-enabled
+          type: string
+        - description: |
+            PEM encoded certificate data for the image registry where the files will be pushed to.
+          name: imgpkg-ca-cert-data
+          type: string
+        - description: Name of of the Package
+          name: carvel-package-name
+          type: string
+        - description: Domain of of the Package
+          name: carvel-package-domain
+          type: string
+        - description: Secret that provides customized values to the package installation's templating steps
+          name: carvel-package-values-secret-name
+          type: string
+        - description: Service account that gives kapp-controller privileges to create resources in the namespace
+          name: carvel-package-service-account
+          type: string
+        - default: ""
+          description: the gitOps repository to write the configuration to.
+          name: gitops-url
+          type: string
+        - default: ""
+          description: the sub-path into the git repository in which to write the configuration.
+          name: gitops-subpath
+          type: string
+        - default: main
+          description: the base branch to clone.
+          name: gitops-branch
+          type: string
+    results:
+        - description: url of the resulting source object you can use in your chain
+          name: url
+          type: string
+          value: $(tasks.store.results.url)
+        - description: digest of the shipped content sent to 'url'
+          name: digest
+          type: string
+          value: $(tasks.store.results.digest)
+    tasks:
+        - name: fetch-config
+          params:
+            - name: url
+              value: $(params.config-url)
+          taskRef:
+            kind: Task
+            name: fetch-tgz-content-oci
+          workspaces:
+            - name: store
+              workspace: shared-data
+        - name: fetch-ytt
+          params:
+            - name: url
+              value: $(params.ytt-url)
+          taskRef:
+            kind: Task
+            name: fetch-tgz-content-oci
+          workspaces:
+            - name: store
+              workspace: shared-data
+        - name: clone-gitops-repo
+          params:
+            - name: url
+              value: $(params.gitops-url)
+            - name: subdirectory
+              value: gitops
+            - name: revision
+              value: $(params.gitops-branch)
+          taskRef:
+            kind: Task
+            name: carvel-package-git-clone
+          when:
+            - input: $(params.gitops-url)
+              operator: notin
+              values:
+                - ""
+          workspaces:
+            - name: output
+              workspace: shared-data
+        - name: carvel-package
+          params:
+            - name: workload-name
+              value: $(params.workload-name)
+            - name: imgpkg-bundle-url
+              value: $(params.imgpkg-bundle-url)
+            - name: imgpkg-iaas-auth-enabled
+              value: $(params.imgpkg-iaas-auth-enabled)
+            - name: imgpkg-ca-cert-data
+              value: $(params.imgpkg-ca-cert-data)
+            - name: carvel-package-name
+              value: $(params.carvel-package-name)
+            - name: carvel-package-domain
+              value: $(params.carvel-package-domain)
+            - name: carvel-package-service-account
+              value: $(params.carvel-package-service-account)
+            - name: carvel-package-values-secret-name
+              value: $(params.carvel-package-values-secret-name)
+            - name: gitops-subpath
+              value: $(params.gitops-subpath)
+          runAfter:
+            - fetch-config
+            - fetch-ytt
+            - clone-gitops-repo
+          taskRef:
+            kind: Task
+            name: carvel-package
+          workspaces:
+            - name: content
+              workspace: shared-data
+        - name: store
+          params:
+            - name: workload-name
+              value: $(params.workload-name)
+          runAfter:
+            - carvel-package
+          taskRef:
+            kind: Task
+            name: store-content-oci
+          workspaces:
+            - name: input
+              workspace: shared-data
+    workspaces:
+        - description: |
+            This workspace contains the cloned repo files, so they can be read by the
+            next task.
+          name: shared-data

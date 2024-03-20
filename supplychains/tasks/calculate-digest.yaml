@@ -1,0 +1,34 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+    name: calculate-digest
+spec:
+    params:
+        - description: The url of the image to calculate the digest from
+          name: image
+          type: string
+    results:
+        - description: The calculated digest
+          name: digest
+          type: string
+    stepTemplate:
+        computeResources: {}
+        securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+                drop:
+                    - ALL
+            runAsNonRoot: true
+            runAsUser: 1001
+            seccompProfile:
+                type: RuntimeDefault
+    steps:
+        - computeResources: {}
+          image: registry.tanzu.vmware.com/tanzu-application-platform/tap-packages@sha256:50c746d0cb1778ec045426cea512a5fa02a03e064d61890747df6ae1e4e6e4f9
+          name: calculate
+          script: |-
+            #!/usr/bin/env bash
+            set -ex
+
+            IMAGE_NAME=$(params.image)
+            printf "${IMAGE_NAME#*sha256:}" > $(results.digest.path)

@@ -1,0 +1,371 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+    name: app-config-web
+spec:
+    description: Generates configuration for a Web application from a Conventions PodIntent.
+    params:
+        - description: URL of the OCI image containing the Conventions PodIntent.
+          name: config-url
+          type: string
+        - description: Workload name.
+          name: workload-name
+          type: string
+        - description: Workload labels.
+          name: workload-labels
+          type: string
+        - description: Workload annotations.
+          name: workload-annotations
+          type: string
+    results:
+        - description: URL of the resulting OCI image containing raw YAML config files.
+          name: url
+          type: string
+          value: $(tasks.store.results.url)
+        - description: SHA of the resulting OCI image containing raw YAML config files.
+          name: digest
+          type: string
+          value: $(tasks.store.results.digest)
+        - description: URL of the resulting OCI image containing YTT files.
+          name: url-overlay
+          type: string
+          value: $(tasks.store-overlay.results.url)
+        - description: SHA of the resulting OCI image containing YTT files.
+          name: digest-overlay
+          type: string
+          value: $(tasks.store-overlay.results.digest)
+    tasks:
+        - name: fetch-conventions
+          params:
+            - name: url
+              value: $(params.config-url)
+          taskRef:
+            kind: Task
+            name: fetch-tgz-content-oci
+          workspaces:
+            - name: store
+              workspace: shared-data
+        - name: web-template
+          params:
+            - name: workload-name
+              value: $(params.workload-name)
+            - name: workload-labels
+              value: $(params.workload-labels)
+            - name: workload-annotations
+              value: $(params.workload-annotations)
+          runAfter:
+            - fetch-conventions
+          taskSpec:
+            metadata: {}
+            params:
+                - name: workload-name
+                  type: string
+                - name: workload-labels
+                  type: string
+                - name: workload-annotations
+                  type: string
+            results:
+                - name: template
+                  type: string
+            spec: null
+            stepTemplate:
+                computeResources: {}
+                securityContext:
+                    allowPrivilegeEscalation: false
+                    capabilities:
+                        drop:
+                            - ALL
+                    runAsNonRoot: true
+                    runAsUser: 1001
+                    seccompProfile:
+                        type: RuntimeDefault
+            steps:
+                - computeResources: {}
+                  image: registry.tanzu.vmware.com/tanzu-application-platform/tap-packages@sha256:7cf5ca4214fd3d3c4f977171adf9d169905dd8ed525499099914934f84481898
+                  name: create-template
+                  script: |
+                    #!/bin/bash
+
+                    set -euo pipefail
+
+                    ls -al $(workspaces.content.path)
+
+                    conv=$(cat $(workspaces.content.path)/app-config.yaml)
+
+                    if [[ '$(params.workload-labels)' == \$\(* ]]; then
+                      workload_labels=""
+                    else
+                      workload_labels='$(params.workload-labels)'
+                    fi
+
+                    if [[ '$(params.workload-annotations)' == \$\(* ]]; then
+                      workload_annotations=""
+                    else
+                      workload_annotations='$(params.workload-annotations)'
+                    fi
+
+                    cd `mktemp -d`
+
+                    create_template \
+                      -workload-name="$(params.workload-name)" \
+                      -conventions="${conv}" \
+                      -workload-labels="${workload_labels}" \
+                      -workload-annotations="${workload_annotations}"
+                    if [ $? -ne 0 ]; then
+                      echo "create template failed"
+                      tee error.txt
+                      exit 1
+                    fi
+
+                    cat <<EOF > $(workspaces.content.path)/kapp_config.yaml
+                    apiVersion: kapp.k14s.io/v1alpha1
+                    kind: Config
+                    rebaseRules:
+                      - path: [metadata, annotations, serving.knative.dev/creator]
+                        type: copy
+                        sources: [new, existing]
+                        resourceMatchers: &matchers
+                          - apiVersionKindMatcher: {apiVersion: serving.knative.dev/v1, kind: Service}
+                      - path: [metadata, annotations, serving.knative.dev/lastModifier]
+                        type: copy
+                        sources: [new, existing]
+                        resourceMatchers: *matchers
+                    waitRules:
+                      - resourceMatchers:
+                        - apiVersionKindMatcher:
+                            apiVersion: serving.knative.dev/v1
+                            kind: Service
+                        conditionMatchers:
+                          - type: Ready
+                            status: "True"
+                            success: true
+                          - type: Ready
+                            status: "False"
+                            failure: true
+                    ownershipLabelRules:
+                      - path: [ spec, template, metadata, labels ]
+                        resourceMatchers:
+                          - apiVersionKindMatcher: { apiVersion: serving.knative.dev/v1, kind: Service }
+                    EOF
+
+                    cat appconfig.yaml
+                    rm $(workspaces.content.path)/app-config.yaml
+                    cp appconfig.yaml $(workspaces.content.path)
+          workspaces:
+            - name: content
+              workspace: shared-data
+        - name: store
+          params:
+            - name: workload-name
+              value: $(params.workload-name)
+          runAfter:
+            - web-template
+          taskRef:
+            kind: Task
+            name: store-content-oci
+          workspaces:
+            - name: input
+              workspace: shared-data
+        - name: add-overlays
+          params:
+            - name: workload-name
+              value: $(params.workload-name)
+          runAfter:
+            - store
+          taskSpec:
+            metadata: {}
+            params:
+                - name: workload-name
+                  type: string
+            results:
+                - name: overlays
+                  type: string
+                - name: values
+                  type: string
+            spec: null
+            stepTemplate:
+                computeResources: {}
+                securityContext:
+                    allowPrivilegeEscalation: false
+                    capabilities:
+                        drop:
+                            - ALL
+                    runAsNonRoot: true
+                    runAsUser: 1001
+                    seccompProfile:
+                        type: RuntimeDefault
+            steps:
+                - computeResources: {}
+                  image: registry.tanzu.vmware.com/tanzu-application-platform/tap-packages@sha256:7cf5ca4214fd3d3c4f977171adf9d169905dd8ed525499099914934f84481898
+                  name: write-file
+                  script: |
+                    #!/bin/bash
+                    set -euo pipefail
+                    set -x
+
+                    cat <<EOF > $(workspaces.content.path)/web-template-overlays.yaml
+                    #@ load("@ytt:overlay", "overlay")
+                    #@ load("@ytt:data", "data")
+                    #@ load("@ytt:template", "template")
+
+                    #@ def format(d):
+                    #@   f = []
+                    #@   for k, v in d.items():
+                    #@     f.append({"name": k, "value": v})
+                    #@   end
+                    #@   return f
+                    #@ end
+
+                    #@ def env(existing_env_vars, user_provided_env_vars):
+                    #@   existing = {}
+                    #@   if existing_env_vars:
+                    #@     for existing_env_var in existing_env_vars:
+                    #@       name = existing_env_var["name"]
+                    #@       value = existing_env_var["value"]
+                    #@       existing[name] = value
+                    #@     end
+                    #@   end
+                    #@
+                    #@   user_provided = {}
+                    #@   if user_provided_env_vars:
+                    #@     for user_provided_env_var in user_provided_env_vars:
+                    #@       name = user_provided_env_var["name"]
+                    #@       value = user_provided_env_var["value"]
+                    #@       user_provided[name] = value
+                    #@     end
+                    #@   end
+                    #@
+                    #@   existing.update(user_provided)
+                    #@   return format(existing)
+                    #@ end
+
+                    #@ def annotations():
+                    #@   annotations = {}
+                    #@   if data.values.knativeAnnotations:
+                    #@     annotations = dict(data.values.knativeAnnotations)
+                    #@   end
+                    #@   if data.values.minScale:
+                    #@     annotations["autoscaling.knative.dev/min-scale"] = data.values.minScale
+                    #@   end
+                    #@   if data.values.maxScale:
+                    #@     annotations["autoscaling.knative.dev/max-scale"] = data.values.maxScale
+                    #@   end
+                    #@   return annotations
+                    #@ end
+
+                    #@overlay/match by=overlay.subset({"apiVersion":"serving.knative.dev/v1", "kind": "Service"})
+                    ---
+                    spec:
+                      #@overlay/match-child-defaults missing_ok=True
+                      template:
+                        metadata:
+                          annotations:
+                            _: #@ template.replace(annotations())
+                        spec:
+                          #@overlay/match missing_ok=True
+                          containers:
+                            #@overlay/match by=overlay.index(0)
+                            - name: workload
+                              #@ if data.values.resources:
+                              #@overlay/match missing_ok=True
+                              #@overlay/replace or_add=True
+                              resources: #@ data.values.resources
+                              #@ end
+
+                              #@ if data.values.env:
+                              #@overlay/match missing_ok=True
+                              #@overlay/replace or_add=True, via=lambda left, right: env(left, right)
+                              env: #@ data.values.env
+                              #@ end
+
+                              #@ if data.values.livenessProbe:
+                              #@overlay/match missing_ok=True
+                              #@overlay/replace or_add=True
+                              livenessProbe: #@ data.values.livenessProbe
+                              #@ end
+
+                              #@ if data.values.readinessProbe:
+                              #@overlay/match missing_ok=True
+                              #@overlay/replace or_add=True
+                              readinessProbe: #@ data.values.readinessProbe
+                              #@ end
+
+                              #@ if data.values.securityContext:
+                              #@overlay/match missing_ok=True
+                              #@overlay/replace or_add=True
+                              securityContext: #@ data.values.securityContext
+                              #@ end
+                    EOF
+
+                    cat <<EOF > $(workspaces.content.path)/web-template-values.yaml
+                    #@data/values-schema
+                    ---
+                    #@schema/desc "Used to generate resource names."
+                    #@schema/example "tanzu-java-web-app"
+                    #@schema/validation min_len=1
+                    workload_name: "$(params.workload-name)"
+
+                    #@schema/desc "If set, overrides the default Knative Service minimum number of replicas."
+                    #@schema/nullable
+                    minScale: ""
+
+                    #@schema/desc "If set, overrides the default Knative Service maximum number of replicas."
+                    #@schema/nullable
+                    maxScale: ""
+
+                    #@schema/desc "Overrides the default Knative Service.spec.containers[0].livenessProbe set by the Supply Chain."
+                    #@schema/example {"periodSeconds": 10}
+                    #@schema/type any=True
+                    livenessProbe: null
+
+                    #@schema/desc "Overrides the default Knative Service.spec.containers[0].readinessProbe set by the Supply Chain."
+                    #@schema/example {"periodSeconds": 10}
+                    #@schema/type any=True
+                    readinessProbe: null
+
+                    #@schema/desc "Overrides the default Knative Service.spec.containers[0].resources set by the Supply Chain."
+                    #@schema/example {"requests": {"memory": "750Mi"}}
+                    #@schema/type any=True
+                    resources: null
+
+                    #@schema/desc "Merges with the default Deployment.spec.containers[0].env set by the Supply Chain. If there is a conflict, the value set here will be used."
+                    #@schema/example [{"name": "MY_ENV_VAR", "value": "MY_ENV_VALUE"}]
+                    env:
+                    - name: ""
+                      value: ""
+
+                    #@schema/desc "Overrides the default Knative Service.spec.containers[0].securityContext set by the Supply Chain."
+                    #@schema/example {"runAsUser": 1001}
+                    #@schema/type any=True
+                    securityContext: null
+
+                    #@schema/desc "Specifies additional annotations to merge into Knative Service.spec.metadata.annotations."
+                    #@schema/example {"autoscaling.knative.dev/window": "30s"}
+                    #@schema/type any=True
+                    knativeAnnotations: null
+                    EOF
+
+                    echo "$(workspaces.content.path)/web-template-overlays.yaml" | tee $(results.overlays.path)
+                    echo "$(workspaces.content.path)/web-template-values.yaml" | tee $(results.values.path)
+          workspaces:
+            - name: content
+              workspace: overlay-data
+        - name: store-overlay
+          params:
+            - name: workload-name
+              value: $(params.workload-name)
+          runAfter:
+            - add-overlays
+          taskRef:
+            kind: Task
+            name: store-content-oci
+          workspaces:
+            - name: input
+              workspace: overlay-data
+    workspaces:
+        - description: |
+            Used to store the Conventions PodIntent and generated config files.
+          name: shared-data
+        - description: |
+            Used to store generated YTT files.
+          name: overlay-data

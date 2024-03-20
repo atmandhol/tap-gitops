@@ -1,0 +1,18 @@
+apiVersion: supply-chain.apps.tanzu.vmware.com/v1alpha1
+kind: Component
+metadata:
+    name: source-package-translator-1.0.0
+spec:
+    description: |
+        Takes the type source and immediately outputs it as type package.
+    inputs:
+        - name: source
+          type: source
+    outputs:
+        - digest: $(inputs.source.digest)
+          name: package
+          type: package
+          url: $(inputs.source.url)
+    pipelineRun:
+        pipelineRef:
+            name: no-op

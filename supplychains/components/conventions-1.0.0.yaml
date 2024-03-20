@@ -1,0 +1,144 @@
+apiVersion: supply-chain.apps.tanzu.vmware.com/v1alpha1
+kind: Component
+metadata:
+    name: conventions-1.0.0
+spec:
+    config:
+        - path: spec.env
+          schema:
+            description: |
+                May contain an optional array of objects. Each object is a pair of keys: `name` and either `value` or `valueFrom`.
+                The Conventions component will translate these values into environment variables in the output object.
+            items:
+                description: |
+                    An environment variable will be added to outputted Pod template spec with the given `name` and value from either `value` or `valueFrom` field.
+                    The format of the `value` and `valueFrom` matches that of the [Kubernetes Pod Template
+                    Specification](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#environment-variables-1).
+                properties:
+                    name:
+                        description: |
+                            The name of the environment variable that will be added to the Pod template spec.
+                        type: string
+                    value:
+                        description: |
+                            The literal value of the environment variable.
+                            Note that `value` and `valueFrom` are mutually exclusive; you can only have one per item.
+                        type: string
+                    valueFrom:
+                        description: |
+                            Specifies a non-literal souce for the environment variable's value.
+                        properties:
+                            configMapKeyRef:
+                                description: |
+                                    Select a value from a `ConfigMap`.
+                                properties:
+                                    key:
+                                        description: |
+                                            The key to select.
+                                        type: string
+                                    name:
+                                        description: |
+                                            The name of the referent.
+                                        type: string
+                                    optional:
+                                        description: |
+                                            Specify whether the ConfigMap or its key must be defined.
+                                        type: boolean
+                                type: object
+                            fieldRef:
+                                description: |
+                                    Selects a field of the pod.
+                                properties:
+                                    apiVersion:
+                                        description: |
+                                            Version of the schema the FieldPath is written in terms of.
+                                        type: string
+                                    fieldPath:
+                                        description: |
+                                            Path of the field to select in the specified API version.
+                                        type: string
+                                type: object
+                            resourceFieldRef:
+                                description: |
+                                    Selects a resource of the container.
+                                properties:
+                                    containerName:
+                                        description: |
+                                            Container name: required for volumes, optional for env vars.
+                                        type: string
+                                    divisor:
+                                        description: |
+                                            Specifies the output format of the exposed resources.
+                                        type: string
+                                    resource:
+                                        description: |
+                                            Resource to select.
+                                        type: string
+                                type: object
+                            secretKeyRef:
+                                description: |
+                                    Selects a key of a secret in the pod's namespace.
+                                properties:
+                                    key:
+                                        description: |
+                                            The key of the secret to select from. Must be a valid secret key.
+                                        type: string
+                                    name:
+                                        description: |
+                                            The name of the referent.
+                                        type: string
+                                    optional:
+                                        description: |
+                                            Specify whether the Secret or its key must be defined.
+                                        type: boolean
+                                type: object
+                        type: object
+                required:
+                    - name
+                type: object
+            type: array
+    description: "The Conventions component analyzes the `image` input as described in the\n[Cartographer Conventions](https://docs.vmware.com/en/VMware-Tanzu-Application-Platform/1.8/tap/cartographer-conventions-about.html)\ndocumentation and produces a `conventions` output image.\n\nDepends on:\n- Managed Resource Controller. \n  - Tanzu Carvel Package: `managed-resource-controller.apps.tanzu.vmware.com @ >=0.1.2`\n- Conventions Controller\n  - Tanzu Carvel Package: `cartographer.tanzu.vmware.com @ >= 0.8.10`\n"
+    inputs:
+        - name: image
+          type: image
+    outputs:
+        - name: conventions
+          type: conventions
+    pipelineRun:
+        params:
+            - name: image-url
+              value: $(inputs.image.url)
+            - name: workload-name
+              value: $(workload.metadata.name)
+            - name: workload
+              value: $(workload)
+        pipelineRef:
+            name: conventions
+        taskRunSpecs:
+            - pipelineTaskName: prepare
+              podTemplate:
+                securityContext:
+                    fsGroup: 1000
+                    runAsGroup: 1000
+                    runAsUser: 1001
+            - pipelineTaskName: format-result
+              podTemplate:
+                securityContext:
+                    fsGroup: 1000
+                    runAsGroup: 1000
+                    runAsUser: 1001
+            - pipelineTaskName: store
+              podTemplate:
+                securityContext:
+                    fsGroup: 1000
+                    runAsGroup: 1000
+                    runAsUser: 1001
+        workspaces:
+            - name: shared-data
+              volumeClaimTemplate:
+                spec:
+                    accessModes:
+                        - ReadWriteOnce
+                    resources:
+                        requests:
+                            storage: 1Gi

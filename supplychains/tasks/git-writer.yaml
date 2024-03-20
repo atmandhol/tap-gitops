@@ -1,0 +1,102 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+    name: git-writer
+spec:
+    description: |-
+        A task that writes a given set of files (provided as a json base64-encoded)
+        to git repository under a specified directory.
+    params:
+        - default: https://github.com/my-org/my-repo
+          description: The git repo url
+          name: url
+          type: string
+        - default: main
+          description: The git branch to read and write
+          name: base-branch
+          type: string
+        - description: The name of the branch to push changes to. If different from base-branch, a PR is created.
+          name: commit-branch
+          type: string
+        - default: example@example.com
+          description: User email address
+          name: git-user-email
+          type: string
+        - default: Example
+          description: User name
+          name: git-user-name
+          type: string
+        - default: New Commit
+          description: Message for the git commit
+          name: git-commit-message
+          type: string
+        - default: ""
+          description: Sub directory in which to write
+          name: sub-path
+          type: string
+        - description: |
+            Base64-encoded json map of files to write to registry, for example - eyAiUkVBRE1FLm1kIjogIiMgUmVhZG1lIiB9
+          name: git-files
+          type: string
+    results:
+        - description: The url of the successfully created pull request
+          name: pr-url
+          type: string
+        - description: The number of the successfully created pull request
+          name: pr-number
+          type: string
+        - description: The git sha of the updated branch
+          name: git-sha
+          type: string
+    stepTemplate:
+        computeResources: {}
+        securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+                drop:
+                    - ALL
+            runAsNonRoot: true
+            runAsUser: 1001
+            seccompProfile:
+                type: RuntimeDefault
+    steps:
+        - computeResources: {}
+          env:
+            - name: HOME
+              value: /tekton/home/
+          image: registry.tanzu.vmware.com/tanzu-application-platform/tap-packages@sha256:48f7b8fbfcd7d422051ad19dfc3420468a2c97c0e00d65ea0f4af24c99267be3
+          name: commit-and-pr
+          script: |
+            #!/bin/bash
+
+            set -euo pipefail
+
+            cd "$(workspaces.gitops-repo.path)"
+            DEST=./
+            if [ -n "$(params.sub-path)" ]; then
+              mkdir -p "$(params.sub-path)"
+              DEST="./$(params.sub-path)/"
+            fi
+            cp -r "$(workspaces.content.path)/"* "$DEST"
+            UPDATES="$(ls --ignore=lost+found -m $(workspaces.content.path))"
+
+            scm pr create \
+              --commit-title "Updating ${UPDATES}" \
+              --path $(credentials.path)/.git-credentials \
+              --pr-title "Updating ${UPDATES}" \
+              --base-branch $(params.base-branch) \
+              --commit-branch "$(params.commit-branch)" \
+              --git-email "$(params.git-user-email)" \
+              --git-user "$(params.git-user-name)" \
+              --output-git-sha $(results.git-sha.path) \
+              --output-pr-number $(results.pr-number.path) \
+              --output-pr-url $(results.pr-url.path)
+
+            if [ ! -f "$(results.pr-url.path)" ]; then
+              touch "$(results.pr-url.path)"
+            fi
+    workspaces:
+        - description: the gitops repo to write the config update to
+          name: gitops-repo
+        - description: The store for the gitops PR content
+          name: content

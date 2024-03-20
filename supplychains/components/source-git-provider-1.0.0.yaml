@@ -1,0 +1,103 @@
+apiVersion: supply-chain.apps.tanzu.vmware.com/v1alpha1
+kind: Component
+metadata:
+    name: source-git-provider-1.0.0
+spec:
+    config:
+        - path: spec.source
+          schema:
+            properties:
+                git:
+                    description: |
+                        Use this object to retrieve source from a git repository.
+                        The tag, commit and branch fields are mutually exclusive, use only one.
+                    properties:
+                        branch:
+                            description: A git branch ref to watch for new source
+                            example: main
+                            type: string
+                        commit:
+                            description: A git commit sha to use
+                            type: string
+                        tag:
+                            description: A git tag ref to watch for new source
+                            example: v1.0.0
+                            type: string
+                        url:
+                            description: The url to the git source repository
+                            example: https://github.com/acme/my-workload.git
+                            type: string
+                    required:
+                        - url
+                    type: object
+                subPath:
+                    default: ""
+                    description: The sub path in the bundle to locate source code
+                    example: sub-dir
+                    type: string
+            required:
+                - git
+            type: object
+    description: Source git provider retrieves source code and monitors a git repository.
+    outputs:
+        - digest: $(pipeline.results.digest)
+          name: source
+          type: source
+          url: $(pipeline.results.url)
+        - digest: $(resumptions.check-source.results.sha)
+          name: git
+          type: git
+          url: $(resumptions.check-source.results.url)
+    pipelineRun:
+        params:
+            - name: workload-name
+              value: $(workload.metadata.name)
+            - name: git-url
+              value: $(workload.spec.source.git.url)
+            - name: sha
+              value: $(resumptions.check-source.results.sha)
+        pipelineRef:
+            name: source-git-provider
+        taskRunSpecs:
+            - pipelineTaskName: fetch
+              podTemplate:
+                securityContext:
+                    fsGroup: 1000
+                    runAsGroup: 1000
+                    runAsUser: 1001
+            - pipelineTaskName: strip-git
+              podTemplate:
+                securityContext:
+                    fsGroup: 1000
+                    runAsGroup: 1000
+                    runAsUser: 1001
+            - pipelineTaskName: store
+              podTemplate:
+                securityContext:
+                    fsGroup: 1000
+                    runAsGroup: 1000
+                    runAsUser: 1001
+        workspaces:
+            - name: shared-data
+              volumeClaimTemplate:
+                spec:
+                    accessModes:
+                        - ReadWriteOnce
+                    resources:
+                        requests:
+                            storage: 1Gi
+    resumptions:
+        - name: check-source
+          params:
+            - name: git-branch
+              value: $(workload.spec.source.git.branch)
+            - name: git-url
+              value: $(workload.spec.source.git.url)
+            - name: git-commit
+              value: $(workload.spec.source.git.commit)
+            - name: git-tag
+              value: $(workload.spec.source.git.tag)
+          taskRef:
+            name: source-git-check
+          trigger:
+            runAfter: 60s

@@ -1,0 +1,72 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+    name: check-builders
+spec:
+    params:
+        - default: default
+          description: The name of the (Cluster)Builder to use
+          name: builder-name
+          type: string
+        - default: clusterbuilder
+          description: The kind of the builder to use (builder or clusterbuilder)
+          name: builder-kind
+          type: string
+    results:
+        - description: The name of the latest builder image to use
+          name: builder-image
+          type: string
+        - description: The name of the latest run image to use
+          name: run-image
+          type: string
+        - description: Any output messages to record
+          name: message
+          type: string
+    stepTemplate:
+        computeResources: {}
+        securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+                drop:
+                    - ALL
+            runAsNonRoot: true
+            runAsUser: 1001
+            seccompProfile:
+                type: RuntimeDefault
+    steps:
+        - computeResources: {}
+          image: registry.tanzu.vmware.com/tanzu-application-platform/tap-packages@sha256:50c746d0cb1778ec045426cea512a5fa02a03e064d61890747df6ae1e4e6e4f9
+          name: get-latest-builder-images
+          script: |-
+            #!/usr/bin/env bash
+
+            set -euo pipefail
+
+            if [[ "$(params.builder-name)" == "" && "$(params.builder-kind)" != "" ]]; then
+              printf "Cannot provide 'builder-kind' without 'builder-name'" | tee $(results.message.path)
+              exit 1
+            fi
+
+            builderName=$(params.builder-name)
+            if [ "${builderName}" == "" ]; then
+              builderName="default"
+              printf "No builder name provided. Using 'default'" | tee $(results.message.path)
+            fi
+
+            builderKind=$(params.builder-kind)
+            if [ "${builderKind}" == "" ]; then
+              builderKind="clusterbuilder"
+              printf "No builder kind provided. Using 'clusterbuilder'" | tee $(results.message.path)
+            fi
+
+            builderReady=$(kubectl get ${builderKind} ${builderName} -ojsonpath='{.status.conditions[?(@.type=="Ready")].status}')
+            if [ "${builderReady}" != "True" ]; then
+              message=$(kubectl get ${builderKind} ${builderName} -ojsonpath='{.status.conditions[?(@.type=="Ready")].message}')
+              printf "${builderKind} ${builderName} is not ready. message: ${message}" | tee $(results.message.path)
+              exit 1
+            fi
+
+            kubectl get ${builderKind} ${builderName} -ojsonpath='{.status.latestImage}' | tee $(results.builder-image.path)
+            kubectl get ${builderKind} ${builderName} -ojsonpath='{.status.stack.runImage}' | tee $(results.run-image.path)
+
+            printf "Builders resolved" | tee $(results.message.path)
