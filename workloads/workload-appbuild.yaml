@@ -3,24 +3,13 @@ kind: AppBuild
 metadata:
   name: spring-petclinic
 spec:
-  gitOps:
-    baseBranch: "main"
-    subPath: "dev/packages"
-    url: "https://github.com/atmandhol/tap-gitops"
-  registry:
-    repository: "adhol-playground/supplychain/workload"
-    server: "us-east4-docker.pkg.dev"
   source:
     git:
       branch: "main"
       url: "https://github.com/atmandhol/sample-apps.git"
     subPath: "source/spring-petclinic"
-  build:
-    builder:
-      kind: clusterbuilder
-      name: base-jammy
-    serviceAccountName: "default"
   carvel:
     packageName: "spring-petclinic"
-    serviceAccountName: "default"
-    packageDomain: "default.tap"
+  env:
+  - name: "SPRING_ENV_PROFILE"
+    value: "dev"
