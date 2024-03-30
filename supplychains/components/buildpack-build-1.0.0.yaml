@@ -139,4 +139,4 @@ spec:
           taskRef:
             name: check-builders
           trigger:
-            runAfter: 600s
+            runAfter: 60s
