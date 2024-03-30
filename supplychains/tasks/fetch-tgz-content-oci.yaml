@@ -24,7 +24,7 @@ spec:
                 type: RuntimeDefault
     steps:
         - computeResources: {}
-          image: registry.tanzu.vmware.com/tanzu-application-platform/tap-packages@sha256:063cc10922de5016827bd369a23600116bc9bf1712c9c91a92199bb4b81bc266
+          image: registry.tanzu.vmware.com/tanzu-application-platform/tap-packages@sha256:2f87bd9f5f37efbfeb9df83148b42046344a69fd1184e1a9d739c55e2713a78f
           name: fetch
           script: |
             #!/bin/bash

@@ -61,7 +61,7 @@ spec:
                         type: RuntimeDefault
             steps:
                 - computeResources: {}
-                  image: registry.tanzu.vmware.com/tanzu-application-platform/tap-packages@sha256:9cd864d62cbcb074a90e38e17344ec45402e0e7215ee20740b061fd43290ccf8
+                  image: registry.tanzu.vmware.com/tanzu-application-platform/tap-packages@sha256:6562bace3aab8c69b429cee383104223a540ed44d251281a95b0e6a50c16ee5d
                   name: prepare-resource
                   script: |
                     #!/usr/bin/env bash
@@ -69,9 +69,14 @@ spec:
                     set -euo pipefail
 
                     # Verify that there are no env items with both 'value' and 'valueFrom' keys
-                    readonly BAD_ENVS="$(echo '$(params.workload)' | yq '.spec.env[] | select(has("value") and has ("valueFrom")) | .name')"
-                    if [[ -n $BAD_ENVS ]]; then
-                      echo "ERROR: env item(s) with name(s) '$BAD_ENVS' have both value and valueFrom keys" | tee $(results.message.path)
+                    readonly HAS_BAD_ENV="$(echo '$(params.workload)' | yq '.spec.env[] | select(has("value") and has ("valueFrom"))')"
+                    if [[ -n $HAS_BAD_ENV ]]; then
+                      readonly BAD_ENVS="$(echo '$(params.workload)' | yq '.spec.env[] | select(has("value") and has ("valueFrom")) | .name')"
+                      if [[ -n $BAD_ENVS ]]; then
+                        echo "ERROR: env item(s) with name(s) '$BAD_ENVS' have both value and valueFrom keys" | tee $(results.message.path)
+                      else
+                        echo "ERROR: env item(s) with empty name(s) have both value and valueFrom keys" | tee $(results.message.path)
+                      fi
                       exit 1
                     fi
 
@@ -189,7 +194,7 @@ spec:
                         type: RuntimeDefault
             steps:
                 - computeResources: {}
-                  image: registry.tanzu.vmware.com/tanzu-application-platform/tap-packages@sha256:9cd864d62cbcb074a90e38e17344ec45402e0e7215ee20740b061fd43290ccf8
+                  image: registry.tanzu.vmware.com/tanzu-application-platform/tap-packages@sha256:6562bace3aab8c69b429cee383104223a540ed44d251281a95b0e6a50c16ee5d
                   name: format-result
                   script: "#!/usr/bin/env bash\n\nset -x\nset -euo pipefail\n\ncd `mktemp -d`\ncat << EOF > values.yaml\n#@data/values\n\n---\nEOF\n\necho '$(params.json)' | yq -P -o yaml >> values.yaml\n\necho \"[DEBUG] values.yaml\"\ncat values.yaml\n\ncat << EOF > template.yaml\n#@ load(\"@ytt:data\", \"data\")\n\n---\ntemplate: \n  spec: #@ data.values.spec\nEOF\n\necho \"[DEBUG] template.yaml\"\ncat template.yaml\n\nytt -f template.yaml -f values.yaml > app-config.yaml\necho \"[DEBUG] app-config.yaml\"\ncat app-config.yaml\n\nrm template.yaml\nrm values.yaml\n\ncp app-config.yaml $(workspaces.shared-data.path)/\n"
             workspaces:

@@ -45,26 +45,30 @@ spec:
                 type: RuntimeDefault
     steps:
         - computeResources: {}
-          image: registry.tanzu.vmware.com/tanzu-application-platform/tap-packages@sha256:475bcb58613179455b9de3b258ca3861fa04ae2d89083fca5f39dd9cf9647d29
+          image: registry.tanzu.vmware.com/tanzu-application-platform/tap-packages@sha256:d64863023ab9b062812dd408593b189fa5aeba3764813d1f3e1fe99fb89881a7
           name: get-latest-commit
-          script: |
+          script: |-
             #!/usr/bin/env sh
             set -eu
+            url="$(params.git-url)"
+            branch="$(params.git-branch)"
+            tag="$(params.git-tag)"
+            commit="$(params.git-commit)"
 
-            if [ "$(params.git-url)" == "" ]; then
+            if [ -z "$url" ]; then
               printf "No git-url provided. git-url must exist" | tee $(results.message.path)
               exit 1
             fi
 
-            printf "$(params.git-url)" | tee $(results.url.path)
+            printf "$url" | tee $(results.url.path)
 
-            if [ "$(params.git-branch)" != "" ]; then
+            if [ ! -z "$branch" ]; then
               git ls-remote --heads $(params.git-url) $(params.git-branch) | awk '{print $1}' | tr -d '\n' | tee $(results.sha.path)
               printf "using git-branch: $(params.git-branch)" | tee $(results.message.path)
-            elif [ "$(params.git-tag)" != "" ]; then
+            elif [ ! -z "$tag" ]; then
               git ls-remote --tags $(params.git-url) refs/tags/$(params.git-tag) | awk '{print $1}' | tr -d '\n' | tee $(results.sha.path)
               printf "using git-tag: $(params.git-tag)" | tee $(results.message.path)
-            elif [ "$(params.git-commit)" != "" ]; then
+            elif [ ! -z "$commit" ]; then
               printf "$(params.git-commit)" | tee $(results.sha.path)
               printf "using git-commit: $(params.git-commit)" | tee $(results.message.path)
             else

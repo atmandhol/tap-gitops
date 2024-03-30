@@ -13,8 +13,6 @@ spec:
         - componentRef:
             name: source-git-provider-1.0.0
           name: source-git-provider
-          securityContext:
-            runAs: workload
         - componentRef:
             name: buildpack-build-1.0.0
           name: buildpack-build

@@ -137,7 +137,7 @@ spec:
               value: $(workspaces.ssl-ca-directory.bound)
             - name: WORKSPACE_SSL_CA_DIRECTORY_PATH
               value: $(workspaces.ssl-ca-directory.path)
-          image: registry.tanzu.vmware.com/tanzu-application-platform/tap-packages@sha256:475bcb58613179455b9de3b258ca3861fa04ae2d89083fca5f39dd9cf9647d29
+          image: registry.tanzu.vmware.com/tanzu-application-platform/tap-packages@sha256:d64863023ab9b062812dd408593b189fa5aeba3764813d1f3e1fe99fb89881a7
           name: clone
           script: |
             #!/usr/bin/env sh

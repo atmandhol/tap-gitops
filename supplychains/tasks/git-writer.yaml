@@ -64,7 +64,7 @@ spec:
           env:
             - name: HOME
               value: /tekton/home/
-          image: registry.tanzu.vmware.com/tanzu-application-platform/tap-packages@sha256:48f7b8fbfcd7d422051ad19dfc3420468a2c97c0e00d65ea0f4af24c99267be3
+          image: registry.tanzu.vmware.com/tanzu-application-platform/tap-packages@sha256:d3f6803d18e0012ffca2ac2033bad5b15561a911412965a6af84020bc142c676
           name: commit-and-pr
           script: |
             #!/bin/bash
