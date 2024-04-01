@@ -28,17 +28,21 @@ spec:
                 type: RuntimeDefault
     steps:
         - computeResources: {}
-          image: registry.tanzu.vmware.com/tanzu-application-platform/tap-packages@sha256:546db16bb63fcd79133b266b9dcf12722629a8a3475906ca37b5ce0e3f153326
+          image: registry.tanzu.vmware.com/tanzu-application-platform/tap-packages@sha256:a12c23fa62746098beeba66bfa5d0ebfb04b54f90b17f74cefc9a75367726237
           name: deploy-using-kubectl
           script: |-
             #!/bin/bash
 
-            set -uo pipefail
+            set -euo pipefail
 
-            MESSAGE=$(kapp deploy --app $(params.kapp-app-name) -f "$(workspaces.content.path)/$(params.subpath)" --yes)
-            if [ $? -ne 0 ]; then
-              printf "kapp deploy failed. $MESSAGE" | tee $(results.message.path)
-              exit 1
+            set +e
+            ERROR_MESSAGE="$(kapp deploy -a "$(params.kapp-app-name)" -f "$(workspaces.content.path)/$(params.subpath)" -y 2>&1 > /dev/null)"
+            deployval=$?
+            set -e
+
+            if [ $deployval -ne 0 ]; then
+              echo -e "$ERROR_MESSAGE" | tee "$(results.message.path)"
+              exit $deployval
             fi
     workspaces:
         - description: The folder where the yaml is

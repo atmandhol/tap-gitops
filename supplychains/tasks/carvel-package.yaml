@@ -63,7 +63,7 @@ spec:
               value: /tekton/home/.docker/
             - name: HOME
               value: /tekton/home/
-          image: registry.tanzu.vmware.com/tanzu-application-platform/tap-packages@sha256:546db16bb63fcd79133b266b9dcf12722629a8a3475906ca37b5ce0e3f153326
+          image: registry.tanzu.vmware.com/tanzu-application-platform/tap-packages@sha256:a12c23fa62746098beeba66bfa5d0ebfb04b54f90b17f74cefc9a75367726237
           name: build-imgpkg-bundle
           script: |-
             #!/bin/bash
@@ -133,7 +133,7 @@ spec:
               value: /tekton/home/.docker/
             - name: HOME
               value: /tekton/home/
-          image: registry.tanzu.vmware.com/tanzu-application-platform/tap-packages@sha256:546db16bb63fcd79133b266b9dcf12722629a8a3475906ca37b5ce0e3f153326
+          image: registry.tanzu.vmware.com/tanzu-application-platform/tap-packages@sha256:a12c23fa62746098beeba66bfa5d0ebfb04b54f90b17f74cefc9a75367726237
           name: package-version
           script: |-
             #!/bin/bash
@@ -173,7 +173,7 @@ spec:
               value: /tekton/home/.docker/
             - name: HOME
               value: /tekton/home/
-          image: registry.tanzu.vmware.com/tanzu-application-platform/tap-packages@sha256:546db16bb63fcd79133b266b9dcf12722629a8a3475906ca37b5ce0e3f153326
+          image: registry.tanzu.vmware.com/tanzu-application-platform/tap-packages@sha256:a12c23fa62746098beeba66bfa5d0ebfb04b54f90b17f74cefc9a75367726237
           name: build-carvel-package
           script: |-
             #!/bin/bash
