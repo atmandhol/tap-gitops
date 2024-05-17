@@ -1,0 +1,14 @@
+apiVersion: packaging.carvel.dev/v1alpha1
+kind: PackageInstall
+metadata:
+  name: spring-petclinic-7.default.tap-pkgi
+spec:
+  packageRef:
+    refName: spring-petclinic-7.default.tap
+    versionSelection:
+      constraints: 20240517024422.0.0
+      prereleases: {}
+  serviceAccountName: default
+  values:
+  - secretRef:
+      name: spring-petclinic-7.default.tap-values
