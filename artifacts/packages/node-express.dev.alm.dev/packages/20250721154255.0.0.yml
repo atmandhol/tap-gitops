@@ -1,0 +1,34 @@
+apiVersion: data.packaging.carvel.dev/v1alpha1
+kind: Package
+metadata:
+  name: node-express.dev.alm.dev.20250721154255.0.0
+  labels:
+    app.kubernetes.io/part-of: node-express
+spec:
+  refName: node-express.dev.alm.dev
+  version: 20250721154255.0.0
+  template:
+    spec:
+      fetch:
+      - imgpkgBundle:
+          image: supply-chain-docker-dev-local.usw1.packages.broadcom.com/tap-install/tbs/node-express-dev-bundle@sha256:6ab04dc65d6adb531e3b9a3f76c232fabcf13a4e74737ee5b9b3afbc8f276dab
+      template:
+      - ytt:
+          paths:
+          - .
+      - kbld:
+          paths:
+          - .imgpkg/images.yml
+          - '-'
+      deploy:
+      - kapp: {}
+  valuesSchema:
+    openAPIv3:
+      type: object
+      additionalProperties: false
+      properties:
+        workload_name:
+          type: string
+          default: ""
+          minLength: 1
+
