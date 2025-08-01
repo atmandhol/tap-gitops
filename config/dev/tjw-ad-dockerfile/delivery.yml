@@ -27,7 +27,7 @@ spec:
         carto.run/workload-name: tjw-ad-dockerfile
     spec:
       containers:
-      - image: supply-chain-docker-dev-local.usw1.packages.broadcom.com/tap-install/tbs/tjw-ad-dockerfile-dev@sha256:8707eb9a85724855c16ecf02174867ac32aafdfb67ca1474782c88206b9273db
+      - image: supply-chain-docker-dev-local.usw1.packages.broadcom.com/tap-install/tbs/tjw-ad-dockerfile-dev@sha256:9c6e48e9571b9ca59779252910974531ef6977e05b32930a5a114e5434ca4c80
         name: workload
         resources: {}
         securityContext:
