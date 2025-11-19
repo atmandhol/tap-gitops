@@ -1,17 +1,17 @@
 apiVersion: data.packaging.carvel.dev/v1alpha1
 kind: Package
 metadata:
-  name: node-express.dev.alm.dev.20250728165343.0.0
+  name: node-express.dev.alm.dev.20251119162815.0.0
   labels:
     app.kubernetes.io/part-of: node-express
 spec:
   refName: node-express.dev.alm.dev
-  version: 20250728165343.0.0
+  version: 20251119162815.0.0
   template:
     spec:
       fetch:
       - imgpkgBundle:
-          image: supply-chain-docker-dev-local.usw1.packages.broadcom.com/tap-install/tbs/node-express-dev-bundle@sha256:19620e74781a0499b62d95e48c18f6f783a3036af3d418c47c54254cbc53c2eb
+          image: supply-chain-docker-dev-local.usw1.packages.broadcom.com/tap-install/tbs/node-express-dev-bundle@sha256:77fb28d27ebb019ccbc827253317957a18e43786029d0beb8fe968bceabcdfd7
       template:
       - ytt:
           paths:
