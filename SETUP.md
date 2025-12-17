@@ -25,6 +25,7 @@ This guide walks you through setting up Tanzu Application Platform (TAP) using G
 - **Docker CLI** configured to use Colima
 - **kubectl** installed
 - **kind** installed (`brew install kind` on macOS)
+- **tappr** installed (for installing cluster essentials - kapp-controller, secretgen-controller)
 - **vault CLI** installed (optional, for manual operations)
 - **kapp** and **ytt** installed (for Tanzu Sync deployment)
 - **Access to VMware Tanzu Network** registry (for TAP packages)
@@ -103,11 +104,25 @@ This script:
 - `CLUSTER_NAME` - Name of the kind cluster (default: `tap-iterate`)
 - `KIND_CONFIG_FILE` - Path to kind config file (default: `kind-config.yaml`)
 
-#### 2.2 Verify Cluster
+#### 2.2 Install Cluster Essentials
+
+After creating the kind cluster, install the required controllers for TAP:
+
+```bash
+tappr tap install-cluster-essentials
+```
+
+This installs the required controllers (kapp-controller, secretgen-controller) needed for TAP installation.
+
+**Note:** If `tappr` is not installed, you can install it or install cluster essentials manually. See [Tanzu Application Platform documentation](https://docs.vmware.com/en/VMware-Tanzu-Application-Platform/) for manual installation steps.
+
+#### 2.3 Verify Cluster
 
 ```bash
 kubectl cluster-info --context kind-tap-iterate
 kubectl get nodes
+kubectl get pods -n kapp-controller
+kubectl get pods -n secretgen-controller
 ```
 
 ### Phase 3: Network Connectivity Test

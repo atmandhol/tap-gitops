@@ -18,12 +18,13 @@ $0 :: Complete TAP GitOps setup with Vault and Kind
 This script performs the following steps:
 1. Start Vault container
 2. Create kind cluster
-3. Test network connectivity
-4. Configure Vault (K8s auth, policies, roles)
-5. Populate Vault with secrets
-6. Apply Kubernetes RBAC
-7. Configure Tanzu Sync
-8. Bootstrap and deploy Tanzu Sync
+3. Install cluster essentials (kapp-controller, secretgen-controller)
+4. Test network connectivity
+5. Configure Vault (K8s auth, policies, roles)
+6. Populate Vault with secrets
+7. Apply Kubernetes RBAC
+8. Configure Tanzu Sync
+9. Bootstrap and deploy Tanzu Sync
 
 Required Environment Variables:
 - INSTALL_REGISTRY_USERNAME -- Username for VMware Tanzu Network registry
@@ -108,13 +109,31 @@ if [[ "${SKIP_KIND_SETUP:-false}" != "true" ]]; then
   echo "Step 2: Creating kind cluster..."
   "${SCRIPT_DIR}/create-kind-cluster.sh"
   echo ""
+  
+  # Set kubectl context
+  kubectl config use-context "kind-${CLUSTER_NAME}" || true
+  
+  # Step 2.1: Install cluster essentials
+  echo "Step 2.1: Installing TAP cluster essentials..."
+  if command -v tappr &> /dev/null; then
+    echo "Running: tappr tap install-cluster-essentials"
+    tappr tap install-cluster-essentials
+    if [ $? -eq 0 ]; then
+      echo "✓ Cluster essentials installed successfully"
+    else
+      echo "Warning: Cluster essentials installation failed or may have already been installed"
+    fi
+  else
+    echo "Warning: tappr command not found. Skipping cluster essentials installation."
+    echo "Install tappr or run manually: tappr tap install-cluster-essentials"
+  fi
+  echo ""
 else
   echo "Step 2: Skipping kind cluster setup (SKIP_KIND_SETUP=true)"
   echo ""
+  # Set kubectl context even if skipping setup
+  kubectl config use-context "kind-${CLUSTER_NAME}" || true
 fi
-
-# Set kubectl context
-kubectl config use-context "kind-${CLUSTER_NAME}" || true
 
 # Step 3: Test network connectivity
 echo "Step 3: Testing network connectivity..."

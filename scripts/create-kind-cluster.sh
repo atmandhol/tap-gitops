@@ -76,4 +76,6 @@ echo "  kubectl cluster-info --context kind-${CLUSTER_NAME}"
 echo ""
 echo "To set as default context:"
 echo "  kubectl config use-context kind-${CLUSTER_NAME}"
+echo ""
+echo "Note: Install cluster essentials with: tappr tap install-cluster-essentials"
 
