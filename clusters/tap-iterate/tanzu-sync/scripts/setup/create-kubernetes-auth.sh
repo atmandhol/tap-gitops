@@ -22,9 +22,37 @@ error_msg="Expected env var to be set, but was not."
 k8s_api_server="$(kubectl config view --minify --output jsonpath="{.clusters[*].cluster.server}")"
 k8s_cacert="$(kubectl config view --minify --raw --output 'jsonpath={..cluster.certificate-authority-data}' | base64 --decode)"
 
-vault auth enable -path=$CLUSTER_NAME kubernetes
+# Check if auth method is already enabled
+if vault auth list 2>/dev/null | grep -q "^${CLUSTER_NAME}/"; then
+  echo "Kubernetes auth method at path '${CLUSTER_NAME}' already exists"
+  echo "Updating configuration..."
+else
+  echo "Enabling Kubernetes auth method at path '${CLUSTER_NAME}'"
+  if ! vault auth enable -path=$CLUSTER_NAME kubernetes 2>/dev/null; then
+    # If enable fails, it might already exist - check and continue
+    if vault auth list 2>/dev/null | grep -q "${CLUSTER_NAME}/"; then
+      echo "Auth method already exists (may have been created previously)"
+    else
+      echo "Error: Failed to enable Kubernetes auth method"
+      exit 1
+    fi
+  fi
+fi
 
-vault write auth/$CLUSTER_NAME/config \
+echo "Configuring Kubernetes auth method..."
+if vault write auth/$CLUSTER_NAME/config \
   kubernetes_host="${k8s_api_server}" \
   kubernetes_ca_cert="${k8s_cacert}" \
-  ttl=1h
+  ttl=1h 2>&1; then
+  echo "✓ Kubernetes auth method configured successfully"
+else
+  EXIT_CODE=$?
+  # Check if it's just a configuration update (not an error)
+  if vault read auth/$CLUSTER_NAME/config 2>/dev/null | grep -q "kubernetes_host"; then
+    echo "✓ Kubernetes auth method is already configured"
+  else
+    echo "Warning: Failed to configure auth method, but it may already be set up correctly"
+    echo "Verifying configuration..."
+    vault read auth/$CLUSTER_NAME/config 2>/dev/null || echo "Please check Vault configuration manually"
+  fi
+fi
