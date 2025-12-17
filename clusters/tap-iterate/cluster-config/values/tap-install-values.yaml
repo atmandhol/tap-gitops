@@ -1,0 +1,6 @@
+tap_install:
+  package_repository:
+    oci_repository: tap-sm-docker-dev-local.dmz.packages.broadcom.com/1.12.6-build.13/tanzu-application-platform/tap-packages:1.12.6-build.13
+  version:
+    package_repo_bundle_tag: 1.12.6-build.13
+    package_version: 1.12.6-build.13

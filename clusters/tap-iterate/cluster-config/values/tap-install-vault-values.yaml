@@ -1,0 +1,15 @@
+---
+tap_install:
+  secrets:
+    eso:
+      vault:
+        server: http://host.docker.internal:8200
+        namespace: ""
+        auth:
+          kubernetes:
+            mountPath: tap-iterate
+            role: tap-iterate--tap-install-secrets
+      remote_refs:
+        tap_sensitive_values:
+          sensitive_tap_values_yaml:
+            key: secret/dev/tap-iterate/tap/sensitive-values.yaml

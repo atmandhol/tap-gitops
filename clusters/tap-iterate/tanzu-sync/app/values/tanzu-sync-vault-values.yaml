@@ -1,0 +1,16 @@
+---
+secrets:
+  eso:
+    vault:
+      server: http://host.docker.internal:8200
+      namespace: ""
+      auth:
+        kubernetes:
+          mountPath: tap-iterate
+          role: tap-iterate--tanzu-sync-secrets
+    remote_refs:
+      sync_git:
+        # TODO: Fill in your configuration for ssh or basic auth here (see tanzu-sync/app/config/.tanzu-managed/schema--eso.yaml)
+      install_registry_dockerconfig:
+        dockerconfigjson:
+          key: secret/dev/tap-iterate/tanzu-sync/install-registry-dockerconfig
