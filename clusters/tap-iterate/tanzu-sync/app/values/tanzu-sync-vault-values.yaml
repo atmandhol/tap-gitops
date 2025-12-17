@@ -10,7 +10,13 @@ secrets:
           role: tap-iterate--tanzu-sync-secrets
     remote_refs:
       sync_git:
-        # TODO: Fill in your configuration for ssh or basic auth here (see tanzu-sync/app/config/.tanzu-managed/schema--eso.yaml)
+        basic_auth:
+          username:
+            key: secret/dev/tap-iterate/tanzu-sync/git-credentials
+            property: username
+          password:
+            key: secret/dev/tap-iterate/tanzu-sync/git-credentials
+            property: password
       install_registry_dockerconfig:
         dockerconfigjson:
           key: secret/dev/tap-iterate/tanzu-sync/install-registry-dockerconfig

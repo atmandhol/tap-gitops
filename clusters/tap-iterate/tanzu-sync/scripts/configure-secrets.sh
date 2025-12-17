@@ -27,6 +27,41 @@ VAULT_ROLE_NAME_FOR_TANZU_SYNC=${VAULT_ROLE_NAME_FOR_TANZU_SYNC:-${CLUSTER_NAME}
 VAULT_ROLE_NAME_FOR_TAP=${VAULT_ROLE_NAME_FOR_TAP:-${CLUSTER_NAME}--tap-install-secrets}
 VAULT_NAMESPACE=${VAULT_NAMESPACE:-""}
 
+# Check if Git URL is configured and determine auth type
+GIT_URL=""
+if [ -f tanzu-sync/app/values/tanzu-sync.yaml ]; then
+  GIT_URL=$(grep "^  url:" tanzu-sync/app/values/tanzu-sync.yaml | awk '{print $2}' | tr -d '"' || echo "")
+fi
+
+# Determine sync_git configuration based on Git URL and available credentials
+SYNC_GIT_CONFIG=""
+if [ -n "${GIT_URL}" ]; then
+  if [[ "${GIT_URL}" =~ ^https:// ]]; then
+    # HTTPS URL - use basic_auth
+    SYNC_GIT_CONFIG="      sync_git:
+        basic_auth:
+          username:
+            key: secret/dev/${CLUSTER_NAME}/tanzu-sync/git-credentials
+            property: username
+          password:
+            key: secret/dev/${CLUSTER_NAME}/tanzu-sync/git-credentials
+            property: password"
+  else
+    # SSH URL - use ssh
+    SYNC_GIT_CONFIG="      sync_git:
+        ssh:
+          private_key:
+            key: secret/dev/${CLUSTER_NAME}/tanzu-sync/git-ssh
+            property: privatekey
+          known_hosts:
+            key: secret/dev/${CLUSTER_NAME}/tanzu-sync/git-ssh
+            property: knownhosts"
+  fi
+else
+  echo "Warning: Git URL not found in tanzu-sync.yaml. Skipping sync_git configuration."
+  SYNC_GIT_CONFIG="      # TODO: Configure either basic_auth (for HTTPS) or ssh (for SSH) based on your Git URL"
+fi
+
 # configure
 # (see: tanzu-sync/app/config/.tanzu-managed/schema.yaml)
 ts_values_path=tanzu-sync/app/values/tanzu-sync-vault-values.yaml
@@ -42,8 +77,7 @@ secrets:
           mountPath: ${CLUSTER_NAME}
           role: ${VAULT_ROLE_NAME_FOR_TANZU_SYNC}
     remote_refs:
-      sync_git:
-        # TODO: Fill in your configuration for ssh or basic auth here (see tanzu-sync/app/config/.tanzu-managed/schema--eso.yaml)
+${SYNC_GIT_CONFIG}
       install_registry_dockerconfig:
         dockerconfigjson:
           key: secret/dev/${CLUSTER_NAME}/tanzu-sync/install-registry-dockerconfig
