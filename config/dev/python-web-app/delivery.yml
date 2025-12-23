@@ -34,7 +34,7 @@ spec:
         carto.run/workload-name: python-web-app
     spec:
       containers:
-      - image: supply-chain-docker-dev-local.usw1.packages.broadcom.com/tap-install/tbs/python-web-app-dev@sha256:5a627b9a2fc644d8fa534a3b2c7e84fa8f86166388d4757ee9534d50c54277fd
+      - image: supply-chain-docker-dev-local.usw1.packages.broadcom.com/tap-install/tbs/python-web-app-dev@sha256:40a686d46424371aa6aaedbef168cdbce1e0c1ebfce190acb3e4b9fa44085539
         name: workload
         resources: {}
         securityContext:
