@@ -1,12 +1,12 @@
 apiVersion: data.packaging.carvel.dev/v1alpha1
 kind: Package
 metadata:
-  name: appsso-starter-java.dev.alm.dev.20251223161336.0.0
+  name: appsso-starter-java.dev.alm.dev.20251223161907.0.0
   labels:
     app.kubernetes.io/part-of: appsso-starter-java
 spec:
   refName: appsso-starter-java.dev.alm.dev
-  version: 20251223161336.0.0
+  version: 20251223161907.0.0
   template:
     spec:
       fetch:
