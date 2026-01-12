@@ -1,0 +1,14 @@
+apiVersion: packaging.carvel.dev/v1alpha1
+kind: PackageInstall
+metadata:
+  name: tanzu-java-web-app.tanzu.vmware.com-pkgi
+spec:
+  packageRef:
+    refName: tanzu-java-web-app.tanzu.vmware.com
+    versionSelection:
+      constraints: 20260112165801.0.0
+      prereleases: {}
+  serviceAccountName: default
+  values:
+  - secretRef:
+      name: tanzu-java-web-app.tanzu.vmware.com-values
