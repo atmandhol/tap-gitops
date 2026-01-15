@@ -33,7 +33,7 @@ spec:
         carto.run/workload-name: tanzu-java-web-app-docker
     spec:
       containers:
-      - image: supply-chain-docker-dev-local.usw1.packages.broadcom.com/tap-install/tbs/tanzu-java-web-app-docker-dev@sha256:5d4e09f4e72db5613c645c7d772ec1ceeff740c2f7d51bf285157ff69ab5ccf4
+      - image: supply-chain-docker-dev-local.usw1.packages.broadcom.com/tap-install/tbs/tanzu-java-web-app-docker-dev@sha256:4f31371e27e874ae1cbaaeae194f7f0acf19dba6be12701fbd4771d9f76f90c7
         name: workload
         resources: {}
         securityContext:
