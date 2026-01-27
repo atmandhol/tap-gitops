@@ -1,17 +1,17 @@
 apiVersion: data.packaging.carvel.dev/v1alpha1
 kind: Package
 metadata:
-  name: appsso-starter-java.dev.alm.dev.20260127160504.0.0
+  name: appsso-starter-java.dev.alm.dev.20260127162527.0.0
   labels:
     app.kubernetes.io/part-of: appsso-starter-java
 spec:
   refName: appsso-starter-java.dev.alm.dev
-  version: 20260127160504.0.0
+  version: 20260127162527.0.0
   template:
     spec:
       fetch:
       - imgpkgBundle:
-          image: supply-chain-docker-dev-local.usw1.packages.broadcom.com/tap-install/tbs/appsso-starter-java-dev-bundle@sha256:c009842a56a98982ebfd74d226f8287dc7140e44796b3544c5a8f45507ed2802
+          image: supply-chain-docker-dev-local.usw1.packages.broadcom.com/tap-install/tbs/appsso-starter-java-dev-bundle@sha256:7c758c5d1f3cec167ab4d196c591407b8b3a68021fc104a0b51586100122edf5
       template:
       - ytt:
           paths:
