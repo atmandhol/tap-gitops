@@ -1,0 +1,34 @@
+apiVersion: data.packaging.carvel.dev/v1alpha1
+kind: Package
+metadata:
+  name: tanzu-java-web-app.dev.alm.dev.20260312163446.0.0+build.203fb5b
+  labels:
+    app.kubernetes.io/part-of: tanzu-java-web-app
+spec:
+  refName: tanzu-java-web-app.dev.alm.dev
+  version: 20260312163446.0.0+build.203fb5b
+  template:
+    spec:
+      fetch:
+      - imgpkgBundle:
+          image: supply-chain-docker-dev-local.usw1.packages.broadcom.com/tap-install/tbs/tanzu-java-web-app-dev-bundle@sha256:472944fdb0c517c38d04b7dff0765ac6e4ebfbe7f924b825a94aec6642bd2fbc
+      template:
+      - ytt:
+          paths:
+          - .
+      - kbld:
+          paths:
+          - .imgpkg/images.yml
+          - '-'
+      deploy:
+      - kapp: {}
+  valuesSchema:
+    openAPIv3:
+      type: object
+      additionalProperties: false
+      properties:
+        workload_name:
+          type: string
+          default: ""
+          minLength: 1
+
