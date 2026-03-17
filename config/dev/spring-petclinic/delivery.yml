@@ -1,0 +1,81 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: spring-petclinic
+  annotations:
+    ootb.apps.tanzu.vmware.com/servicebinding-workload: "true"
+    ootb.apps.tanzu.vmware.com/apidescriptor-ref: "true"
+    kapp.k14s.io/change-rule: upsert after upserting servicebinding.io/ServiceBindings
+  labels:
+    app.kubernetes.io/part-of: petclinic-server
+    apps.kubernetes.io/name: spring-petclinic
+    apps.tanzu.vmware.com/has-tests: "true"
+    apps.tanzu.vmware.com/workload-type: web
+    app.kubernetes.io/component: run
+    carto.run/workload-name: spring-petclinic
+spec:
+  template:
+    metadata:
+      annotations:
+        apps.tanzu.vmware.com/correlationid: https://github.com/dapdelivery/spring-petclinic.git?sub_path=/
+        boot.spring.io/version: 2.5.4
+        conventions.carto.run/applied-conventions: |-
+          spring-boot-convention/auto-configure-actuators-check
+          spring-boot-convention/is-native-app-check
+          spring-boot-convention/is-prometheus-enabled-check
+          spring-boot-convention/spring-boot
+          spring-boot-convention/spring-boot-graceful-shutdown
+          spring-boot-convention/spring-boot-web
+          spring-boot-convention/spring-boot-actuator
+          spring-boot-convention/app-live-view-appflavour-check
+          spring-boot-convention/app-live-view-connector-boot
+          spring-boot-convention/app-live-view-appflavours-boot
+          spring-boot-convention/service-intent-mysql
+        developer.conventions/target-containers: workload
+        kubectl.kubernetes.io/last-applied-configuration: |
+          {"apiVersion":"carto.run/v1alpha1","kind":"Workload","metadata":{"annotations":{},"labels":{"app.kubernetes.io/part-of":"petclinic-server","apps.kubernetes.io/name":"spring-petclinic","apps.tanzu.vmware.com/has-tests":"true","apps.tanzu.vmware.com/workload-type":"web"},"name":"spring-petclinic","namespace":"dev"},"spec":{"env":[{"name":"SPRING_PROFILES_ACTIVE","value":"mysql"},{"name":"JAVA_TOOL_OPTIONS","value":"-Dspring.devtools.restart.enabled=true -Dspring.devtools.restart.poll-interval=2s -Dspring.devtools.restart.quiet-period=1s -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=9005\n"}],"resources":{"requests":{"cpu":"250m","memory":"1.5Gi"}},"serviceClaims":[{"name":"spring-petclinic-db","ref":{"apiVersion":"v1","kind":"Secret","name":"spring-petclinic-db"}}],"source":{"git":{"ref":{"branch":"main"},"url":"https://github.com/dapdelivery/spring-petclinic.git"}}}}
+        services.conventions.carto.run/mysql: mysql-connector-java/
+      labels:
+        app.kubernetes.io/component: run
+        app.kubernetes.io/part-of: petclinic-server
+        apps.kubernetes.io/name: spring-petclinic
+        apps.tanzu.vmware.com/auto-configure-actuators: "false"
+        apps.tanzu.vmware.com/has-tests: "true"
+        apps.tanzu.vmware.com/workload-type: web
+        carto.run/workload-name: spring-petclinic
+        conventions.carto.run/framework: spring-boot
+        services.conventions.carto.run/mysql: workload
+        tanzu.app.live.view: "true"
+        tanzu.app.live.view.application.actuator.path: actuator
+        tanzu.app.live.view.application.actuator.port: "8080"
+        tanzu.app.live.view.application.flavours: spring-boot
+        tanzu.app.live.view.application.name: spring-petclinic
+    spec:
+      containers:
+      - env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: mysql
+        - name: JAVA_TOOL_OPTIONS
+          value: |-
+            -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=9005
+             -Dserver.port="8080" -Dserver.shutdown.grace-period="24s" -Dspring.devtools.restart.enabled="true" -Dspring.devtools.restart.poll-interval="2s" -Dspring.devtools.restart.quiet-period="1s"
+        image: supply-chain-docker-dev-local.usw1.packages.broadcom.com/tap-install/tbs/spring-petclinic-dev@sha256:306c6ccda67af1ff4ad019a2f5f706f2fbcb4f8c7ea3a480e18148bbbb7b136e
+        name: workload
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 250m
+            memory: 1536Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsNonRoot: true
+          runAsUser: 1000
+          seccompProfile:
+            type: RuntimeDefault
+      serviceAccountName: default
+
