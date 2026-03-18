@@ -32,8 +32,9 @@ spec:
           spring-boot-convention/app-live-view-appflavours-boot
           spring-boot-convention/service-intent-mysql
         developer.conventions/target-containers: workload
-        kubectl.kubernetes.io/last-applied-configuration: |
-          {"apiVersion":"carto.run/v1alpha1","kind":"Workload","metadata":{"annotations":{},"labels":{"app.kubernetes.io/part-of":"petclinic-server","apps.kubernetes.io/name":"spring-petclinic","apps.tanzu.vmware.com/has-tests":"true","apps.tanzu.vmware.com/workload-type":"web"},"name":"spring-petclinic","namespace":"dev"},"spec":{"env":[{"name":"SPRING_PROFILES_ACTIVE","value":"mysql"},{"name":"JAVA_TOOL_OPTIONS","value":"-Dspring.devtools.restart.enabled=true -Dspring.devtools.restart.poll-interval=2s -Dspring.devtools.restart.quiet-period=1s -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=9005\n"}],"resources":{"requests":{"cpu":"250m","memory":"1.5Gi"}},"serviceClaims":[{"name":"spring-petclinic-db","ref":{"apiVersion":"v1","kind":"Secret","name":"spring-petclinic-db"}}],"source":{"git":{"ref":{"branch":"main"},"url":"https://github.com/dapdelivery/spring-petclinic.git"}}}}
+        kapp.k14s.io/identity: v1;dev/carto.run/Workload/spring-petclinic;carto.run/v1alpha1
+        kapp.k14s.io/original: '{"apiVersion":"carto.run/v1alpha1","kind":"Workload","metadata":{"labels":{"app.kubernetes.io/part-of":"petclinic-server","apps.kubernetes.io/name":"spring-petclinic","apps.tanzu.vmware.com/has-tests":"true","apps.tanzu.vmware.com/workload-type":"web","kapp.k14s.io/app":"1773850617292695000","kapp.k14s.io/association":"v1.6e6dbf4fe7cfc3824d0d5956086de5c9"},"name":"spring-petclinic","namespace":"dev"},"spec":{"env":[{"name":"SPRING_PROFILES_ACTIVE","value":"mysql"},{"name":"JAVA_TOOL_OPTIONS","value":"-Dspring.devtools.restart.enabled=true -Dspring.devtools.restart.poll-interval=2s -Dspring.devtools.restart.quiet-period=1s -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=9005\n"}],"serviceClaims":[{"name":"spring-petclinic-db","ref":{"apiVersion":"v1","kind":"Secret","name":"spring-petclinic-db"}}],"source":{"git":{"ref":{"branch":"main"},"url":"https://github.com/dapdelivery/spring-petclinic.git"}}}}'
+        kapp.k14s.io/original-diff-md5: c6e94dc94aed3401b5d0f26ed6c0bff3
         services.conventions.carto.run/mysql: mysql-connector-java/
       labels:
         app.kubernetes.io/component: run
@@ -59,15 +60,12 @@ spec:
           value: |-
             -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=9005
              -Dserver.port="8080" -Dserver.shutdown.grace-period="24s" -Dspring.devtools.restart.enabled="true" -Dspring.devtools.restart.poll-interval="2s" -Dspring.devtools.restart.quiet-period="1s"
-        image: supply-chain-docker-dev-local.usw1.packages.broadcom.com/tap-install/tbs/spring-petclinic-dev@sha256:306c6ccda67af1ff4ad019a2f5f706f2fbcb4f8c7ea3a480e18148bbbb7b136e
+        image: supply-chain-docker-dev-local.usw1.packages.broadcom.com/tap-install/tbs/spring-petclinic-dev@sha256:57ec06c803f349d71dbc37706ccf0b8f729b6e5602529b9ec4d9a018ed02300e
         name: workload
         ports:
         - containerPort: 8080
           protocol: TCP
-        resources:
-          requests:
-            cpu: 250m
-            memory: 1536Mi
+        resources: {}
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:

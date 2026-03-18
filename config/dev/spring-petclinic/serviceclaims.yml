@@ -18,8 +18,9 @@ kind: ServiceBinding
 metadata:
   name: spring-petclinic-spring-petclinic-db
   annotations:
-    kubectl.kubernetes.io/last-applied-configuration: |
-      {"apiVersion":"carto.run/v1alpha1","kind":"Workload","metadata":{"annotations":{},"labels":{"app.kubernetes.io/part-of":"petclinic-server","apps.kubernetes.io/name":"spring-petclinic","apps.tanzu.vmware.com/has-tests":"true","apps.tanzu.vmware.com/workload-type":"web"},"name":"spring-petclinic","namespace":"dev"},"spec":{"env":[{"name":"SPRING_PROFILES_ACTIVE","value":"mysql"},{"name":"JAVA_TOOL_OPTIONS","value":"-Dspring.devtools.restart.enabled=true -Dspring.devtools.restart.poll-interval=2s -Dspring.devtools.restart.quiet-period=1s -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=9005\n"}],"resources":{"requests":{"cpu":"250m","memory":"1.5Gi"}},"serviceClaims":[{"name":"spring-petclinic-db","ref":{"apiVersion":"v1","kind":"Secret","name":"spring-petclinic-db"}}],"source":{"git":{"ref":{"branch":"main"},"url":"https://github.com/dapdelivery/spring-petclinic.git"}}}}
+    kapp.k14s.io/identity: v1;dev/carto.run/Workload/spring-petclinic;carto.run/v1alpha1
+    kapp.k14s.io/original: '{"apiVersion":"carto.run/v1alpha1","kind":"Workload","metadata":{"labels":{"app.kubernetes.io/part-of":"petclinic-server","apps.kubernetes.io/name":"spring-petclinic","apps.tanzu.vmware.com/has-tests":"true","apps.tanzu.vmware.com/workload-type":"web","kapp.k14s.io/app":"1773850617292695000","kapp.k14s.io/association":"v1.6e6dbf4fe7cfc3824d0d5956086de5c9"},"name":"spring-petclinic","namespace":"dev"},"spec":{"env":[{"name":"SPRING_PROFILES_ACTIVE","value":"mysql"},{"name":"JAVA_TOOL_OPTIONS","value":"-Dspring.devtools.restart.enabled=true -Dspring.devtools.restart.poll-interval=2s -Dspring.devtools.restart.quiet-period=1s -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=9005\n"}],"serviceClaims":[{"name":"spring-petclinic-db","ref":{"apiVersion":"v1","kind":"Secret","name":"spring-petclinic-db"}}],"source":{"git":{"ref":{"branch":"main"},"url":"https://github.com/dapdelivery/spring-petclinic.git"}}}}'
+    kapp.k14s.io/original-diff-md5: c6e94dc94aed3401b5d0f26ed6c0bff3
     kapp.k14s.io/change-group: servicebinding.io/ServiceBindings
   labels:
     app.kubernetes.io/part-of: petclinic-server
