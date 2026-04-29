@@ -60,7 +60,7 @@ spec:
           value: |-
             -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=9005
              -Dserver.port="8080" -Dserver.shutdown.grace-period="24s" -Dspring.devtools.restart.enabled="true" -Dspring.devtools.restart.poll-interval="2s" -Dspring.devtools.restart.quiet-period="1s"
-        image: supply-chain-docker-dev-local.usw1.packages.broadcom.com/tap-install/tbs/spring-petclinic-dev@sha256:8298d5f8f3e19c688507a4d17df25b0bdd0f17a07f8a5a73fde5252906b04f33
+        image: supply-chain-docker-dev-local.usw1.packages.broadcom.com/tap-install/tbs/spring-petclinic-dev@sha256:94e02ff0ea2f84d0a8cbaab46e400771d577a1fe0574d382b74d2fea217fde37
         name: workload
         ports:
         - containerPort: 8080
